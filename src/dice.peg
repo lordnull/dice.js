@@ -1,0 +1,36 @@
+start
+  = dicerolls
+
+dicerolls
+  = diceroll operation dicerolls
+  / diceroll
+
+diceroll
+  = x:intval mode:rollmode mm:minmax { return {'x':x, 'mode':mode, 'min':mm.min, 'max':mm.max}; }
+  / mode:rollmode mm:minmax { return {'x':1, 'mode':mode, 'min':mm.min, 'max':mm.max}; }
+  / x:intval { return {'x':1, 'mode':'d', 'min':x, 'max':x}; }
+  / mm:minmax { return {'x':1, 'mode':'d', 'min':mm.min, 'max':mm.max}; }
+
+rollmode
+  = "d"
+  / "w"
+
+minmax
+  = min:intval ".." max:intval { return {'min':min, 'max':max}; }
+  / max:intval {return {'min':1, 'max':max}; }
+
+operation
+  = ws op:[+-] ws { return op; }
+
+ws
+  = [ ]*
+
+intval
+  = i:integer { return function(){ return i }; }
+  / v:variable { return function(scope){ return scope[v]; }; }
+
+variable
+  = "[" varname:[a-zA-Z 0-9]+ "]" { return varname.join(""); }
+
+integer "integer"
+  = digits:[0-9]+ { return parseInt(digits.join(""), 10); }
