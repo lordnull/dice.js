@@ -3,6 +3,12 @@ dice.js
 
 A Generic Dice syntax parser and evaluator for javascript.
 
+Dependency
+==========
+
+Underscore.js is used, but no included in the minified or uncompressed
+versions.
+
 Build
 =====
 
@@ -12,6 +18,9 @@ this will be overwritten.
 To do a build that generates both uncompressed and minified versions, 
 simply use make. 'make compile' only generates the uncompressed version.
 Both versions are placed in the './build'.
+
+Simply include either dice.js or dice.min.js in a script tag, and you're
+off.
 
 Test
 ====
