@@ -701,7 +701,12 @@ dice.eval = (function(){
 
 	var rollThemBones = function(diceSpec, scope){
 		diceSpec = fixDice(diceSpec);
-		var rng = _.range(0, diceSpec.x(scope));
+		var numDice = diceSpec.x(scope);
+		var rng;
+		if(numDice === 0){
+			return [0];
+		}
+		rng = _.range(0, numDice);
 		return rng.map(function(){
 			return rollABone(diceSpec.min(scope), diceSpec.max(scope), diceSpec.mode);
 		});

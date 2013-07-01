@@ -13,7 +13,8 @@ describe("Dice", function(){
     it("can parse a variety of intputs", function(){
         var strings = ["1", "1d6", "d20", "3d8", "3d2..8", "1d20 + 5",
             "3d6 + 1d12", "d20 + [Con Mod]", "3d[W]",
-            "3d[W] + 2 + [Strength Mod] + [Enhance]d12", "3d6 + 1w6"];
+            "3d[W] + 2 + [Strength Mod] + [Enhance]d12", "3d6 + 1w6",
+            "0d3", "1w0..4"];
         strings.map(function(toParse){
             var parseIt = function(){
                 dice.parse.parse(toParse);
@@ -65,6 +66,14 @@ describe("Dice", function(){
 
         });
 
+        it("handle 0's in num dice gracefully", function(){
+            var rollStr = "[Key Thing]d6 + 5";
+
+            var scope = {"Key Thing": 0};
+            var res = dice.roll(rollStr, scope);
+
+            expect(res.sum).toEqual(5);
+        });
     });
 });
 
