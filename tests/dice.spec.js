@@ -10,6 +10,11 @@ describe("Dice", function(){
         expect(dice.roll).toBeDefined();
     });
 
+    it("should have a valid version", function(){
+        // this test should get updated every time the version changes.
+        expect(dice.version).toEqual("0.2.0");
+    });
+
     it("can parse a variety of intputs", function(){
         var strings = ["1", "1d6", "d20", "3d8", "3d2..8", "1d20 + 5",
             "3d6 + 1d12", "d20 + [Con Mod]", "3d[W]",
