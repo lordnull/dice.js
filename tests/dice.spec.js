@@ -65,6 +65,19 @@ describe("Dice", function(){
 
         });
 
+				it("returns meta about parsed info", function(){
+            var rollStr = "1d[Maxy] + 2";
+						var parsed = dice.parse.parse(rollStr);
+						parsed = _.flatten(parsed);
+
+						expect(parsed[0].x.static).toEqual(true);
+						expect(parsed[0].x.variable).toEqual(undefined);
+						expect(parsed[0].max.static).toEqual(false);
+						expect(parsed[0].max.variable).toEqual('Maxy');
+						expect(parsed[2].max.static).toEqual(true);
+						expect(parsed[2].max.variable).toEqual(undefined);
+				});
+
     });
 });
 

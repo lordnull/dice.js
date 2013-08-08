@@ -401,7 +401,13 @@ dice.parse = (function(){
         pos0 = clone(pos);
         result0 = parse_integer();
         if (result0 !== null) {
-          result0 = (function(offset, line, column, i) { return function(){ return i }; })(pos0.offset, pos0.line, pos0.column, result0);
+          result0 = (function(offset, line, column, i) {
+        		var func = function(){
+        			return i;
+        		};
+        		func.static = true;
+        		return func;
+        	})(pos0.offset, pos0.line, pos0.column, result0);
         }
         if (result0 === null) {
           pos = clone(pos0);
@@ -410,7 +416,14 @@ dice.parse = (function(){
           pos0 = clone(pos);
           result0 = parse_variable();
           if (result0 !== null) {
-            result0 = (function(offset, line, column, v) { return function(scope){ return scope[v]; }; })(pos0.offset, pos0.line, pos0.column, result0);
+            result0 = (function(offset, line, column, v) {
+          			var func = function(scope){
+          				return scope[v];
+          			};
+          			func.static = false;
+          			func.variable = v;
+          			return func;
+          		})(pos0.offset, pos0.line, pos0.column, result0);
           }
           if (result0 === null) {
             pos = clone(pos0);

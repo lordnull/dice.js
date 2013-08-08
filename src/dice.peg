@@ -26,8 +26,21 @@ ws
   = [ ]*
 
 intval
-  = i:integer { return function(){ return i }; }
-  / v:variable { return function(scope){ return scope[v]; }; }
+  = i:integer {
+		var func = function(){
+			return i;
+		};
+		func.static = true;
+		return func;
+	}
+  / v:variable {
+			var func = function(scope){
+				return scope[v];
+			};
+			func.static = false;
+			func.variable = v;
+			return func;
+		}
 
 variable
   = "[" varname:[a-zA-Z 0-9]+ "]" { return varname.join(""); }
