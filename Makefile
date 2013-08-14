@@ -7,5 +7,8 @@ compile:
 min: compile
 	java -jar compiler.jar --language_in ECMASCRIPT5 --js build/dice.js --js_output_file build/dice.min.js
 
+peg:
+	pegjs -e dice.parse --track-line-and-column src/dice.peg src/dice.parse.js
+
 test: compile
 	karma start karma.conf.js --single-run
