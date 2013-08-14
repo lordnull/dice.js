@@ -14,7 +14,7 @@ describe("Dice", function(){
         var strings = ["1", "1d6", "d20", "3d8", "3d2..8", "1d20 + 5",
             "3d6 + 1d12", "d20 + [Con Mod]", "3d[W]",
             "3d[W] + 2 + [Strength Mod] + [Enhance]d12", "3d6 + 1w6",
-						"3d6 + -2"];
+						"3d6 + -2", "3d6 * 2"];
         strings.map(function(toParse){
             var parseIt = function(){
                 dice.parse.parse(toParse);
@@ -85,6 +85,11 @@ describe("Dice", function(){
 						expect(parsed.sum).toEqual(3);
 				});
 
+				it("handles multiplecation", function(){
+					var rollStr = "1d3..3 * 5";
+					var parsed = dice.roll(rollStr, {});
+					expect(parsed.sum).toEqual(15);
+				});
     });
 });
 

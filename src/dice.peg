@@ -21,6 +21,7 @@ minmax
 
 operation
   = ws op:[+-] ws { return op; }
+	/ ws "*" ws { return "*"; }
 
 ws
   = [ ]*
