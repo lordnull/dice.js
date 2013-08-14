@@ -14,7 +14,8 @@ describe("Dice", function(){
         var strings = ["1", "1d6", "d20", "3d8", "3d2..8", "1d20 + 5",
             "3d6 + 1d12", "d20 + [Con Mod]", "3d[W]",
             "3d[W] + 2 + [Strength Mod] + [Enhance]d12", "3d6 + 1w6",
-						"3d6 + -2", "3d6 * 2", "15 / 3", "f[scope var]"];
+						"3d6 + -2", "3d6 * 2", "15 / 3", "f[scope var]",
+						"3dr[roundable]"];
         strings.map(function(toParse){
             var parseIt = function(){
                 dice.parse.parse(toParse);
@@ -105,10 +106,23 @@ describe("Dice", function(){
 					expect(res.sum).toEqual(15);
 				});
 
-				if("makes floored variables with that op", function(){
+				if("marks floored variables with that op", function(){
 					var rollStr = "f[thang]d7";
 					var parsed = dice.parse.parse(rollStr);
 					expect(parsed[0].x.operation).toEqual("floor");
+				});
+
+				it("rounds variable numbers", function(){
+					var rollStr = "r[3 2]dr[4 5]..5 + r[6 7]";
+					var scope = {'3 2': 3.2, '4 5': 4.5, '6 7':6.7};
+					var res = dice.roll(rollStr, scope);
+					expect(res.sum).toEqual(22);
+				});
+
+				it("marks rounded variables", function(){
+					var rollStr = "r[thang]";
+					var parsed = dice.parse.parse(rollStr);
+					expect(parsed.max.operation).toEqual("round");
 				});
     });
 });

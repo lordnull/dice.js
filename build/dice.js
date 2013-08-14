@@ -541,6 +541,45 @@ dice.parse = (function(){
             if (result0 === null) {
               pos = clone(pos0);
             }
+            if (result0 === null) {
+              pos0 = clone(pos);
+              pos1 = clone(pos);
+              if (input.charCodeAt(pos.offset) === 114) {
+                result0 = "r";
+                advance(pos, 1);
+              } else {
+                result0 = null;
+                if (reportFailures === 0) {
+                  matchFailed("\"r\"");
+                }
+              }
+              if (result0 !== null) {
+                result1 = parse_variable();
+                if (result1 !== null) {
+                  result0 = [result0, result1];
+                } else {
+                  result0 = null;
+                  pos = clone(pos1);
+                }
+              } else {
+                result0 = null;
+                pos = clone(pos1);
+              }
+              if (result0 !== null) {
+                result0 = (function(offset, line, column, v) {
+              		var func = function(scope){
+              			 return Math.round(scope[v]);
+              		};
+              		func.static = false;
+              		func.variable = v;
+              		func.operation = "round";
+              		return func;
+              	})(pos0.offset, pos0.line, pos0.column, result0[1]);
+              }
+              if (result0 === null) {
+                pos = clone(pos0);
+              }
+            }
           }
         }
         return result0;

@@ -53,6 +53,15 @@ intval
 		func.operation = "floor";
 		return func;
 	}
+	/ "r" v:variable {
+		var func = function(scope){
+			 return Math.round(scope[v]);
+		};
+		func.static = false;
+		func.variable = v;
+		func.operation = "round";
+		return func;
+	}
 
 variable
   = "[" varname:[a-zA-Z 0-9]+ "]" { return varname.join(""); }
