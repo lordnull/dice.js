@@ -25,7 +25,7 @@ dice.eval = (function(){
 	};
 
 	var reduceThemBones = function(acc, diceSpec){
-		if(_.contains(["+", "-", "*"], diceSpec)){
+		if(_.contains(["+", "-", "*", "/"], diceSpec)){
 			acc.mode = diceSpec;
 			return acc;
 		}
@@ -39,6 +39,8 @@ dice.eval = (function(){
 			acc.sum -= rollSum;
 		} else if(acc.mode == "*") {
 			acc.sum *= rollSum;
+		} else if(acc.mode == "/") {
+			acc.sum /= rollSum;
 		}
 		return acc;
 	};
