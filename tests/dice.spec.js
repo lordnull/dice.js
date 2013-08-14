@@ -13,7 +13,8 @@ describe("Dice", function(){
     it("can parse a variety of intputs", function(){
         var strings = ["1", "1d6", "d20", "3d8", "3d2..8", "1d20 + 5",
             "3d6 + 1d12", "d20 + [Con Mod]", "3d[W]",
-            "3d[W] + 2 + [Strength Mod] + [Enhance]d12", "3d6 + 1w6"];
+            "3d[W] + 2 + [Strength Mod] + [Enhance]d12", "3d6 + 1w6",
+						"3d6 + -2"];
         strings.map(function(toParse){
             var parseIt = function(){
                 dice.parse.parse(toParse);
@@ -76,6 +77,12 @@ describe("Dice", function(){
 						expect(parsed[0].max.variable).toEqual('Maxy');
 						expect(parsed[2].max.static).toEqual(true);
 						expect(parsed[2].max.variable).toEqual(undefined);
+				});
+
+				it("adds negative numbers correctly", function(){
+						var rollStr = "5 + -2";
+						var parsed = dice.roll(rollStr, {});
+						expect(parsed.sum).toEqual(3);
 				});
 
     });
