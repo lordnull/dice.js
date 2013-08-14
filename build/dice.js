@@ -469,8 +469,8 @@ dice.parse = (function(){
       }
       
       function parse_intval() {
-        var result0;
-        var pos0;
+        var result0, result1;
+        var pos0, pos1;
         
         pos0 = clone(pos);
         result0 = parse_integer();
@@ -491,16 +491,56 @@ dice.parse = (function(){
           result0 = parse_variable();
           if (result0 !== null) {
             result0 = (function(offset, line, column, v) {
-          			var func = function(scope){
-          				return scope[v];
-          			};
-          			func.static = false;
-          			func.variable = v;
-          			return func;
-          		})(pos0.offset, pos0.line, pos0.column, result0);
+          		var func = function(scope){
+          			return scope[v];
+          		};
+          		func.static = false;
+          		func.variable = v;
+          		func.operation = "none";
+          		return func;
+          	})(pos0.offset, pos0.line, pos0.column, result0);
           }
           if (result0 === null) {
             pos = clone(pos0);
+          }
+          if (result0 === null) {
+            pos0 = clone(pos);
+            pos1 = clone(pos);
+            if (input.charCodeAt(pos.offset) === 102) {
+              result0 = "f";
+              advance(pos, 1);
+            } else {
+              result0 = null;
+              if (reportFailures === 0) {
+                matchFailed("\"f\"");
+              }
+            }
+            if (result0 !== null) {
+              result1 = parse_variable();
+              if (result1 !== null) {
+                result0 = [result0, result1];
+              } else {
+                result0 = null;
+                pos = clone(pos1);
+              }
+            } else {
+              result0 = null;
+              pos = clone(pos1);
+            }
+            if (result0 !== null) {
+              result0 = (function(offset, line, column, v) {
+            		var func = function(scope){
+            			return Math.floor(scope[v]);
+            		};
+            		func.static = false;
+            		func.variable = v;
+            		func.operation = "floor";
+            		return func;
+            	})(pos0.offset, pos0.line, pos0.column, result0[1]);
+            }
+            if (result0 === null) {
+              pos = clone(pos0);
+            }
           }
         }
         return result0;

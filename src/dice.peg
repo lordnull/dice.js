@@ -36,13 +36,23 @@ intval
 		return func;
 	}
   / v:variable {
-			var func = function(scope){
-				return scope[v];
-			};
-			func.static = false;
-			func.variable = v;
-			return func;
-		}
+		var func = function(scope){
+			return scope[v];
+		};
+		func.static = false;
+		func.variable = v;
+		func.operation = "none";
+		return func;
+	}
+	/ "f" v:variable {
+		var func = function(scope){
+			return Math.floor(scope[v]);
+		};
+		func.static = false;
+		func.variable = v;
+		func.operation = "floor";
+		return func;
+	}
 
 variable
   = "[" varname:[a-zA-Z 0-9]+ "]" { return varname.join(""); }

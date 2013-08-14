@@ -14,7 +14,7 @@ describe("Dice", function(){
         var strings = ["1", "1d6", "d20", "3d8", "3d2..8", "1d20 + 5",
             "3d6 + 1d12", "d20 + [Con Mod]", "3d[W]",
             "3d[W] + 2 + [Strength Mod] + [Enhance]d12", "3d6 + 1w6",
-						"3d6 + -2", "3d6 * 2", "15 / 3"];
+						"3d6 + -2", "3d6 * 2", "15 / 3", "f[scope var]"];
         strings.map(function(toParse){
             var parseIt = function(){
                 dice.parse.parse(toParse);
@@ -75,6 +75,7 @@ describe("Dice", function(){
 						expect(parsed[0].x.variable).toEqual(undefined);
 						expect(parsed[0].max.static).toEqual(false);
 						expect(parsed[0].max.variable).toEqual('Maxy');
+						expect(parsed[0].max.operation).toEqual("none");
 						expect(parsed[2].max.static).toEqual(true);
 						expect(parsed[2].max.variable).toEqual(undefined);
 				});
@@ -95,6 +96,19 @@ describe("Dice", function(){
 					var rollStr = "1d15..15 / 3";
 					var parsed = dice.roll(rollStr, {});
 					expect(parsed.sum).toEqual(5);
+				});
+
+				it("floors variable numbers", function(){
+					var rollStr = "f[thang]d5..5";
+					var scope = {'thang':3.7};
+					var res = dice.roll(rollStr, scope);
+					expect(res.sum).toEqual(15);
+				});
+
+				if("makes floored variables with that op", function(){
+					var rollStr = "f[thang]d7";
+					var parsed = dice.parse.parse(rollStr);
+					expect(parsed[0].x.operation).toEqual("floor");
 				});
     });
 });
