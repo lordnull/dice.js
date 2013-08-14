@@ -62,6 +62,15 @@ intval
 		func.operation = "round";
 		return func;
 	}
+	/ "c" v:variable {
+		var func = function(scope){
+			return Math.ceil(scope[v]);
+		};
+		func.static = false;
+		func.variable = v;
+		func.operation = "ceiling";
+		return func;
+	}
 
 variable
   = "[" varname:[a-zA-Z 0-9]+ "]" { return varname.join(""); }

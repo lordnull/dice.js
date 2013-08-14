@@ -15,7 +15,7 @@ describe("Dice", function(){
             "3d6 + 1d12", "d20 + [Con Mod]", "3d[W]",
             "3d[W] + 2 + [Strength Mod] + [Enhance]d12", "3d6 + 1w6",
 						"3d6 + -2", "3d6 * 2", "15 / 3", "f[scope var]",
-						"3dr[roundable]"];
+						"3dr[roundable]", "c[tough]w7"];
         strings.map(function(toParse){
             var parseIt = function(){
                 dice.parse.parse(toParse);
@@ -123,6 +123,19 @@ describe("Dice", function(){
 					var rollStr = "r[thang]";
 					var parsed = dice.parse.parse(rollStr);
 					expect(parsed.max.operation).toEqual("round");
+				});
+
+				it("ceilings variable numbers", function(){
+					var rollStr = "1d4..c[not four]";
+					var scope = {'not four': 3.2};
+					var res = dice.roll(rollStr, scope);
+					expect(res.sum).toEqual(4)
+				});
+
+				it("marks ceilinged variable numbers", function(){
+					var rollStr = "1d4..c[top] + 2";
+					var parsed = dice.parse.parse(rollStr);
+					expect(parsed[0].max.operation).toEqual("ceiling");
 				});
     });
 });
