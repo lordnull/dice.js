@@ -12,3 +12,6 @@ peg:
 
 test: compile
 	karma start karma.conf.js --single-run
+
+dbgtest: peg compile
+	karma start karma.conf.js
