@@ -38,12 +38,18 @@ dice.parse = (function(){
     parse: function(input, startRule) {
       var parseFunctions = {
         "dicerolls": parse_dicerolls,
+        "multiplicationOp": parse_multiplicationOp,
+        "multiplicationSeq": parse_multiplicationSeq,
+        "additionSeq": parse_additionSeq,
+        "additionOp": parse_additionOp,
         "diceroll": parse_diceroll,
         "rollmode": parse_rollmode,
+        "maybe_minmax": parse_maybe_minmax,
         "minmax": parse_minmax,
-        "operation": parse_operation,
         "ws": parse_ws,
         "intval": parse_intval,
+        "mathit": parse_mathit,
+        "lookup": parse_lookup,
         "variable": parse_variable,
         "integer": parse_integer
       };
@@ -133,45 +139,15 @@ dice.parse = (function(){
       
       function parse_dicerolls() {
         var result0, result1, result2;
-        var pos0;
-        
-        pos0 = clone(pos);
-        result0 = parse_diceroll();
-        if (result0 !== null) {
-          result1 = parse_operation();
-          if (result1 !== null) {
-            result2 = parse_dicerolls();
-            if (result2 !== null) {
-              result0 = [result0, result1, result2];
-            } else {
-              result0 = null;
-              pos = clone(pos0);
-            }
-          } else {
-            result0 = null;
-            pos = clone(pos0);
-          }
-        } else {
-          result0 = null;
-          pos = clone(pos0);
-        }
-        if (result0 === null) {
-          result0 = parse_diceroll();
-        }
-        return result0;
-      }
-      
-      function parse_diceroll() {
-        var result0, result1, result2;
         var pos0, pos1;
         
         pos0 = clone(pos);
         pos1 = clone(pos);
-        result0 = parse_intval();
+        result0 = parse_multiplicationSeq();
         if (result0 !== null) {
-          result1 = parse_rollmode();
+          result1 = parse_additionOp();
           if (result1 !== null) {
-            result2 = parse_minmax();
+            result2 = parse_additionSeq();
             if (result2 !== null) {
               result0 = [result0, result1, result2];
             } else {
@@ -187,7 +163,297 @@ dice.parse = (function(){
           pos = clone(pos1);
         }
         if (result0 !== null) {
-          result0 = (function(offset, line, column, x, mode, mm) { return {'x':x, 'mode':mode, 'min':mm.min, 'max':mm.max}; })(pos0.offset, pos0.line, pos0.column, result0[0], result0[1], result0[2]);
+          result0 = (function(offset, line, column, v1, op, v2) { return {'op':op, args: [v1, v2] }; })(pos0.offset, pos0.line, pos0.column, result0[0], result0[1], result0[2]);
+        }
+        if (result0 === null) {
+          pos = clone(pos0);
+        }
+        if (result0 === null) {
+          pos0 = clone(pos);
+          result0 = parse_additionSeq();
+          if (result0 !== null) {
+            result0 = (function(offset, line, column, out) { return out; })(pos0.offset, pos0.line, pos0.column, result0);
+          }
+          if (result0 === null) {
+            pos = clone(pos0);
+          }
+        }
+        return result0;
+      }
+      
+      function parse_multiplicationOp() {
+        var result0, result1, result2;
+        var pos0, pos1;
+        
+        pos0 = clone(pos);
+        pos1 = clone(pos);
+        result0 = parse_ws();
+        if (result0 !== null) {
+          if (input.charCodeAt(pos.offset) === 42) {
+            result1 = "*";
+            advance(pos, 1);
+          } else {
+            result1 = null;
+            if (reportFailures === 0) {
+              matchFailed("\"*\"");
+            }
+          }
+          if (result1 !== null) {
+            result2 = parse_ws();
+            if (result2 !== null) {
+              result0 = [result0, result1, result2];
+            } else {
+              result0 = null;
+              pos = clone(pos1);
+            }
+          } else {
+            result0 = null;
+            pos = clone(pos1);
+          }
+        } else {
+          result0 = null;
+          pos = clone(pos1);
+        }
+        if (result0 !== null) {
+          result0 = (function(offset, line, column) { return '*'; })(pos0.offset, pos0.line, pos0.column);
+        }
+        if (result0 === null) {
+          pos = clone(pos0);
+        }
+        if (result0 === null) {
+          pos0 = clone(pos);
+          pos1 = clone(pos);
+          result0 = parse_ws();
+          if (result0 !== null) {
+            if (input.charCodeAt(pos.offset) === 47) {
+              result1 = "/";
+              advance(pos, 1);
+            } else {
+              result1 = null;
+              if (reportFailures === 0) {
+                matchFailed("\"/\"");
+              }
+            }
+            if (result1 !== null) {
+              result2 = parse_ws();
+              if (result2 !== null) {
+                result0 = [result0, result1, result2];
+              } else {
+                result0 = null;
+                pos = clone(pos1);
+              }
+            } else {
+              result0 = null;
+              pos = clone(pos1);
+            }
+          } else {
+            result0 = null;
+            pos = clone(pos1);
+          }
+          if (result0 !== null) {
+            result0 = (function(offset, line, column) { return '/'; })(pos0.offset, pos0.line, pos0.column);
+          }
+          if (result0 === null) {
+            pos = clone(pos0);
+          }
+        }
+        return result0;
+      }
+      
+      function parse_multiplicationSeq() {
+        var result0, result1, result2;
+        var pos0, pos1;
+        
+        pos0 = clone(pos);
+        pos1 = clone(pos);
+        result0 = parse_diceroll();
+        if (result0 !== null) {
+          result1 = parse_multiplicationOp();
+          if (result1 !== null) {
+            result2 = parse_multiplicationSeq();
+            if (result2 !== null) {
+              result0 = [result0, result1, result2];
+            } else {
+              result0 = null;
+              pos = clone(pos1);
+            }
+          } else {
+            result0 = null;
+            pos = clone(pos1);
+          }
+        } else {
+          result0 = null;
+          pos = clone(pos1);
+        }
+        if (result0 !== null) {
+          result0 = (function(offset, line, column, v1, op, v2) { return {'op':op, args:[v1, v2] }; })(pos0.offset, pos0.line, pos0.column, result0[0], result0[1], result0[2]);
+        }
+        if (result0 === null) {
+          pos = clone(pos0);
+        }
+        if (result0 === null) {
+          pos0 = clone(pos);
+          result0 = parse_diceroll();
+          if (result0 !== null) {
+            result0 = (function(offset, line, column, d) { return d; })(pos0.offset, pos0.line, pos0.column, result0);
+          }
+          if (result0 === null) {
+            pos = clone(pos0);
+          }
+        }
+        return result0;
+      }
+      
+      function parse_additionSeq() {
+        var result0, result1, result2;
+        var pos0, pos1;
+        
+        pos0 = clone(pos);
+        pos1 = clone(pos);
+        result0 = parse_multiplicationSeq();
+        if (result0 !== null) {
+          result1 = parse_additionOp();
+          if (result1 !== null) {
+            result2 = parse_additionSeq();
+            if (result2 !== null) {
+              result0 = [result0, result1, result2];
+            } else {
+              result0 = null;
+              pos = clone(pos1);
+            }
+          } else {
+            result0 = null;
+            pos = clone(pos1);
+          }
+        } else {
+          result0 = null;
+          pos = clone(pos1);
+        }
+        if (result0 !== null) {
+          result0 = (function(offset, line, column, v1, op, v2) { return {'op':op, args:[v1, v2]}; })(pos0.offset, pos0.line, pos0.column, result0[0], result0[1], result0[2]);
+        }
+        if (result0 === null) {
+          pos = clone(pos0);
+        }
+        if (result0 === null) {
+          pos0 = clone(pos);
+          result0 = parse_multiplicationSeq();
+          if (result0 !== null) {
+            result0 = (function(offset, line, column, op) { return op; })(pos0.offset, pos0.line, pos0.column, result0);
+          }
+          if (result0 === null) {
+            pos = clone(pos0);
+          }
+        }
+        return result0;
+      }
+      
+      function parse_additionOp() {
+        var result0, result1, result2;
+        var pos0, pos1;
+        
+        pos0 = clone(pos);
+        pos1 = clone(pos);
+        result0 = parse_ws();
+        if (result0 !== null) {
+          if (input.charCodeAt(pos.offset) === 43) {
+            result1 = "+";
+            advance(pos, 1);
+          } else {
+            result1 = null;
+            if (reportFailures === 0) {
+              matchFailed("\"+\"");
+            }
+          }
+          if (result1 !== null) {
+            result2 = parse_ws();
+            if (result2 !== null) {
+              result0 = [result0, result1, result2];
+            } else {
+              result0 = null;
+              pos = clone(pos1);
+            }
+          } else {
+            result0 = null;
+            pos = clone(pos1);
+          }
+        } else {
+          result0 = null;
+          pos = clone(pos1);
+        }
+        if (result0 !== null) {
+          result0 = (function(offset, line, column) { return "+"; })(pos0.offset, pos0.line, pos0.column);
+        }
+        if (result0 === null) {
+          pos = clone(pos0);
+        }
+        if (result0 === null) {
+          pos0 = clone(pos);
+          pos1 = clone(pos);
+          result0 = parse_ws();
+          if (result0 !== null) {
+            if (input.charCodeAt(pos.offset) === 45) {
+              result1 = "-";
+              advance(pos, 1);
+            } else {
+              result1 = null;
+              if (reportFailures === 0) {
+                matchFailed("\"-\"");
+              }
+            }
+            if (result1 !== null) {
+              result2 = parse_ws();
+              if (result2 !== null) {
+                result0 = [result0, result1, result2];
+              } else {
+                result0 = null;
+                pos = clone(pos1);
+              }
+            } else {
+              result0 = null;
+              pos = clone(pos1);
+            }
+          } else {
+            result0 = null;
+            pos = clone(pos1);
+          }
+          if (result0 !== null) {
+            result0 = (function(offset, line, column) { return "-"; })(pos0.offset, pos0.line, pos0.column);
+          }
+          if (result0 === null) {
+            pos = clone(pos0);
+          }
+        }
+        return result0;
+      }
+      
+      function parse_diceroll() {
+        var result0, result1, result2;
+        var pos0, pos1;
+        
+        pos0 = clone(pos);
+        pos1 = clone(pos);
+        result0 = parse_intval();
+        if (result0 !== null) {
+          result1 = parse_rollmode();
+          if (result1 !== null) {
+            result2 = parse_maybe_minmax();
+            if (result2 !== null) {
+              result0 = [result0, result1, result2];
+            } else {
+              result0 = null;
+              pos = clone(pos1);
+            }
+          } else {
+            result0 = null;
+            pos = clone(pos1);
+          }
+        } else {
+          result0 = null;
+          pos = clone(pos1);
+        }
+        if (result0 !== null) {
+          result0 = (function(offset, line, column, x, mode, mm) { return {'op':mode, 'args':[x, mm]} })(pos0.offset, pos0.line, pos0.column, result0[0], result0[1], result0[2]);
         }
         if (result0 === null) {
           pos = clone(pos0);
@@ -197,7 +463,7 @@ dice.parse = (function(){
           pos1 = clone(pos);
           result0 = parse_rollmode();
           if (result0 !== null) {
-            result1 = parse_minmax();
+            result1 = parse_maybe_minmax();
             if (result1 !== null) {
               result0 = [result0, result1];
             } else {
@@ -209,25 +475,25 @@ dice.parse = (function(){
             pos = clone(pos1);
           }
           if (result0 !== null) {
-            result0 = (function(offset, line, column, mode, mm) { return {'x':1, 'mode':mode, 'min':mm.min, 'max':mm.max}; })(pos0.offset, pos0.line, pos0.column, result0[0], result0[1]);
+            result0 = (function(offset, line, column, mode, mm) { return {'op':mode, 'args':[1, mm]}; })(pos0.offset, pos0.line, pos0.column, result0[0], result0[1]);
           }
           if (result0 === null) {
             pos = clone(pos0);
           }
           if (result0 === null) {
             pos0 = clone(pos);
-            result0 = parse_intval();
+            result0 = parse_minmax();
             if (result0 !== null) {
-              result0 = (function(offset, line, column, x) { return {'x':1, 'mode':'d', 'min':x, 'max':x}; })(pos0.offset, pos0.line, pos0.column, result0);
+              result0 = (function(offset, line, column, mm) { return { 'op':'d', 'args':[ {'op':'static', 'value':1}, mm]}; })(pos0.offset, pos0.line, pos0.column, result0);
             }
             if (result0 === null) {
               pos = clone(pos0);
             }
             if (result0 === null) {
               pos0 = clone(pos);
-              result0 = parse_minmax();
+              result0 = parse_intval();
               if (result0 !== null) {
-                result0 = (function(offset, line, column, mm) { return {'x':1, 'mode':'d', 'min':mm.min, 'max':mm.max}; })(pos0.offset, pos0.line, pos0.column, result0);
+                result0 = (function(offset, line, column, x) { return x; })(pos0.offset, pos0.line, pos0.column, result0);
               }
               if (result0 === null) {
                 pos = clone(pos0);
@@ -259,6 +525,31 @@ dice.parse = (function(){
             if (reportFailures === 0) {
               matchFailed("\"w\"");
             }
+          }
+        }
+        return result0;
+      }
+      
+      function parse_maybe_minmax() {
+        var result0;
+        var pos0;
+        
+        pos0 = clone(pos);
+        result0 = parse_minmax();
+        if (result0 !== null) {
+          result0 = (function(offset, line, column, mm) { return mm; })(pos0.offset, pos0.line, pos0.column, result0);
+        }
+        if (result0 === null) {
+          pos = clone(pos0);
+        }
+        if (result0 === null) {
+          pos0 = clone(pos);
+          result0 = parse_intval();
+          if (result0 !== null) {
+            result0 = (function(offset, line, column, max) { return {'op':'random', 'args':[{'op':'static', 'args':[], 'value':1}, max]}; })(pos0.offset, pos0.line, pos0.column, result0);
+          }
+          if (result0 === null) {
+            pos = clone(pos0);
           }
         }
         return result0;
@@ -298,136 +589,10 @@ dice.parse = (function(){
           pos = clone(pos1);
         }
         if (result0 !== null) {
-          result0 = (function(offset, line, column, min, max) { return {'min':min, 'max':max}; })(pos0.offset, pos0.line, pos0.column, result0[0], result0[2]);
+          result0 = (function(offset, line, column, min, max) { return {'op':'random', 'args':[min, max]}; })(pos0.offset, pos0.line, pos0.column, result0[0], result0[2]);
         }
         if (result0 === null) {
           pos = clone(pos0);
-        }
-        if (result0 === null) {
-          pos0 = clone(pos);
-          result0 = parse_intval();
-          if (result0 !== null) {
-            result0 = (function(offset, line, column, max) {return {'min':1, 'max':max}; })(pos0.offset, pos0.line, pos0.column, result0);
-          }
-          if (result0 === null) {
-            pos = clone(pos0);
-          }
-        }
-        return result0;
-      }
-      
-      function parse_operation() {
-        var result0, result1, result2;
-        var pos0, pos1;
-        
-        pos0 = clone(pos);
-        pos1 = clone(pos);
-        result0 = parse_ws();
-        if (result0 !== null) {
-          if (/^[+\-]/.test(input.charAt(pos.offset))) {
-            result1 = input.charAt(pos.offset);
-            advance(pos, 1);
-          } else {
-            result1 = null;
-            if (reportFailures === 0) {
-              matchFailed("[+\\-]");
-            }
-          }
-          if (result1 !== null) {
-            result2 = parse_ws();
-            if (result2 !== null) {
-              result0 = [result0, result1, result2];
-            } else {
-              result0 = null;
-              pos = clone(pos1);
-            }
-          } else {
-            result0 = null;
-            pos = clone(pos1);
-          }
-        } else {
-          result0 = null;
-          pos = clone(pos1);
-        }
-        if (result0 !== null) {
-          result0 = (function(offset, line, column, op) { return op; })(pos0.offset, pos0.line, pos0.column, result0[1]);
-        }
-        if (result0 === null) {
-          pos = clone(pos0);
-        }
-        if (result0 === null) {
-          pos0 = clone(pos);
-          pos1 = clone(pos);
-          result0 = parse_ws();
-          if (result0 !== null) {
-            if (input.charCodeAt(pos.offset) === 42) {
-              result1 = "*";
-              advance(pos, 1);
-            } else {
-              result1 = null;
-              if (reportFailures === 0) {
-                matchFailed("\"*\"");
-              }
-            }
-            if (result1 !== null) {
-              result2 = parse_ws();
-              if (result2 !== null) {
-                result0 = [result0, result1, result2];
-              } else {
-                result0 = null;
-                pos = clone(pos1);
-              }
-            } else {
-              result0 = null;
-              pos = clone(pos1);
-            }
-          } else {
-            result0 = null;
-            pos = clone(pos1);
-          }
-          if (result0 !== null) {
-            result0 = (function(offset, line, column) { return "*"; })(pos0.offset, pos0.line, pos0.column);
-          }
-          if (result0 === null) {
-            pos = clone(pos0);
-          }
-          if (result0 === null) {
-            pos0 = clone(pos);
-            pos1 = clone(pos);
-            result0 = parse_ws();
-            if (result0 !== null) {
-              if (input.charCodeAt(pos.offset) === 47) {
-                result1 = "/";
-                advance(pos, 1);
-              } else {
-                result1 = null;
-                if (reportFailures === 0) {
-                  matchFailed("\"/\"");
-                }
-              }
-              if (result1 !== null) {
-                result2 = parse_ws();
-                if (result2 !== null) {
-                  result0 = [result0, result1, result2];
-                } else {
-                  result0 = null;
-                  pos = clone(pos1);
-                }
-              } else {
-                result0 = null;
-                pos = clone(pos1);
-              }
-            } else {
-              result0 = null;
-              pos = clone(pos1);
-            }
-            if (result0 !== null) {
-              result0 = (function(offset, line, column) { return "/"; })(pos0.offset, pos0.line, pos0.column);
-            }
-            if (result0 === null) {
-              pos = clone(pos0);
-            }
-          }
         }
         return result0;
       }
@@ -468,11 +633,7 @@ dice.parse = (function(){
         result0 = parse_integer();
         if (result0 !== null) {
           result0 = (function(offset, line, column, i) {
-        		var func = function(){
-        			return i;
-        		};
-        		func.static = true;
-        		return func;
+        		return {'op': 'static', value: i};
         	})(pos0.offset, pos0.line, pos0.column, result0);
         }
         if (result0 === null) {
@@ -480,16 +641,10 @@ dice.parse = (function(){
         }
         if (result0 === null) {
           pos0 = clone(pos);
-          result0 = parse_variable();
+          result0 = parse_lookup();
           if (result0 !== null) {
-            result0 = (function(offset, line, column, v) {
-          		var func = function(scope){
-          			return scope[v];
-          		};
-          		func.static = false;
-          		func.variable = v;
-          		func.operation = "none";
-          		return func;
+            result0 = (function(offset, line, column, l) {
+          		return l;
           	})(pos0.offset, pos0.line, pos0.column, result0);
           }
           if (result0 === null) {
@@ -498,17 +653,9 @@ dice.parse = (function(){
           if (result0 === null) {
             pos0 = clone(pos);
             pos1 = clone(pos);
-            if (input.charCodeAt(pos.offset) === 102) {
-              result0 = "f";
-              advance(pos, 1);
-            } else {
-              result0 = null;
-              if (reportFailures === 0) {
-                matchFailed("\"f\"");
-              }
-            }
+            result0 = parse_mathit();
             if (result0 !== null) {
-              result1 = parse_variable();
+              result1 = parse_lookup();
               if (result1 !== null) {
                 result0 = [result0, result1];
               } else {
@@ -520,98 +667,88 @@ dice.parse = (function(){
               pos = clone(pos1);
             }
             if (result0 !== null) {
-              result0 = (function(offset, line, column, v) {
-            		var func = function(scope){
-            			return Math.floor(scope[v]);
-            		};
-            		func.static = false;
-            		func.variable = v;
-            		func.operation = "floor";
-            		return func;
-            	})(pos0.offset, pos0.line, pos0.column, result0[1]);
+              result0 = (function(offset, line, column, f, v) {
+            		return {'op':f, args:[v]};
+            	})(pos0.offset, pos0.line, pos0.column, result0[0], result0[1]);
             }
             if (result0 === null) {
               pos = clone(pos0);
             }
-            if (result0 === null) {
-              pos0 = clone(pos);
-              pos1 = clone(pos);
-              if (input.charCodeAt(pos.offset) === 114) {
-                result0 = "r";
-                advance(pos, 1);
-              } else {
-                result0 = null;
-                if (reportFailures === 0) {
-                  matchFailed("\"r\"");
-                }
-              }
-              if (result0 !== null) {
-                result1 = parse_variable();
-                if (result1 !== null) {
-                  result0 = [result0, result1];
-                } else {
-                  result0 = null;
-                  pos = clone(pos1);
-                }
-              } else {
-                result0 = null;
-                pos = clone(pos1);
-              }
-              if (result0 !== null) {
-                result0 = (function(offset, line, column, v) {
-              		var func = function(scope){
-              			 return Math.round(scope[v]);
-              		};
-              		func.static = false;
-              		func.variable = v;
-              		func.operation = "round";
-              		return func;
-              	})(pos0.offset, pos0.line, pos0.column, result0[1]);
-              }
-              if (result0 === null) {
-                pos = clone(pos0);
-              }
-              if (result0 === null) {
-                pos0 = clone(pos);
-                pos1 = clone(pos);
-                if (input.charCodeAt(pos.offset) === 99) {
-                  result0 = "c";
-                  advance(pos, 1);
-                } else {
-                  result0 = null;
-                  if (reportFailures === 0) {
-                    matchFailed("\"c\"");
-                  }
-                }
-                if (result0 !== null) {
-                  result1 = parse_variable();
-                  if (result1 !== null) {
-                    result0 = [result0, result1];
-                  } else {
-                    result0 = null;
-                    pos = clone(pos1);
-                  }
-                } else {
-                  result0 = null;
-                  pos = clone(pos1);
-                }
-                if (result0 !== null) {
-                  result0 = (function(offset, line, column, v) {
-                		var func = function(scope){
-                			return Math.ceil(scope[v]);
-                		};
-                		func.static = false;
-                		func.variable = v;
-                		func.operation = "ceiling";
-                		return func;
-                	})(pos0.offset, pos0.line, pos0.column, result0[1]);
-                }
-                if (result0 === null) {
-                  pos = clone(pos0);
-                }
-              }
+          }
+        }
+        return result0;
+      }
+      
+      function parse_mathit() {
+        var result0;
+        var pos0;
+        
+        pos0 = clone(pos);
+        if (input.charCodeAt(pos.offset) === 102) {
+          result0 = "f";
+          advance(pos, 1);
+        } else {
+          result0 = null;
+          if (reportFailures === 0) {
+            matchFailed("\"f\"");
+          }
+        }
+        if (result0 !== null) {
+          result0 = (function(offset, line, column) { return 'floor'; })(pos0.offset, pos0.line, pos0.column);
+        }
+        if (result0 === null) {
+          pos = clone(pos0);
+        }
+        if (result0 === null) {
+          pos0 = clone(pos);
+          if (input.charCodeAt(pos.offset) === 114) {
+            result0 = "r";
+            advance(pos, 1);
+          } else {
+            result0 = null;
+            if (reportFailures === 0) {
+              matchFailed("\"r\"");
             }
           }
+          if (result0 !== null) {
+            result0 = (function(offset, line, column) { return 'round'; })(pos0.offset, pos0.line, pos0.column);
+          }
+          if (result0 === null) {
+            pos = clone(pos0);
+          }
+          if (result0 === null) {
+            pos0 = clone(pos);
+            if (input.charCodeAt(pos.offset) === 99) {
+              result0 = "c";
+              advance(pos, 1);
+            } else {
+              result0 = null;
+              if (reportFailures === 0) {
+                matchFailed("\"c\"");
+              }
+            }
+            if (result0 !== null) {
+              result0 = (function(offset, line, column) { return 'ceil'; })(pos0.offset, pos0.line, pos0.column);
+            }
+            if (result0 === null) {
+              pos = clone(pos0);
+            }
+          }
+        }
+        return result0;
+      }
+      
+      function parse_lookup() {
+        var result0;
+        var pos0;
+        
+        pos0 = clone(pos);
+        result0 = parse_variable();
+        if (result0 !== null) {
+          result0 = (function(offset, line, column, v) { return {'op':'lookup', 'value':v}; })(pos0.offset, pos0.line, pos0.column, result0);
+        }
+        if (result0 === null) {
+          pos = clone(pos0);
         }
         return result0;
       }

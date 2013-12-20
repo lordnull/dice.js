@@ -1,82 +1,195 @@
 dice.eval = (function(){
 
-	var sum = function(i, a){
-		return i + a;
+	function makeSeq(endIndex){
+		var seq = [];
+		seq[endIndex] = true;
+		for(var i = 0; i < seq.length; i++){
+			seq[i] = true;
+		}
+		return seq;
 	};
 
-	var simplifyParsed = function(parsed){
-		if(! (parsed instanceof Array)){
-			parsed = [parsed];
-		}
+	var ops = {
 
-		return _.flatten(parsed);
+		'static': function(){
+			var outValue = this.value;
+			return function(){
+				return outValue;
+			};
+		},
+
+		'lookup': function(){
+			var variableName = this.value;
+			return function(scope){
+				return scope[variableName];
+			}
+		},
+
+		'floor': function(value){
+			return function(scope){
+				return Math.floor(value(scope));
+			}
+		},
+
+		'ceil': function(value){
+			return function(scope){
+				return Math.ceil(value(scope));
+			}
+		},
+
+		'round': function(value){
+			return function(scope){
+				return Math.round(value(scope));
+			}
+		},
+
+		'd': function(numRolls, minMax){
+			return function(scope){
+				var x = numRolls(scope);
+				var seq = makeSeq(x - 1);
+				var outMin, outMax;
+				var rolled = seq.map(function(){
+					var rolledRet = minMax(scope);
+					outMin = rolledRet.min;
+					outMax = rolledRet.max;
+					return rolledRet;
+				});
+				var out = rolled.reduce(function(sum, val){
+					return sum + val;
+				}, 0);
+				out = new Number(out);
+				out.rolls = rolled;
+				out.min = outMin;
+				out.max = outMax;
+				out.x = x;
+				out.mode = 'd';
+				return out;
+			};
+		},
+
+		'w': function(numRolls, minMax){
+			return function(scope){
+				var x = numRolls(scope);
+				var seq = makeSeq(x - 1);
+				var outMin, outMax;
+				var rolled = seq.map(function(){
+					var lastRolled = minMax(scope);
+					var wildrolled = 0;
+					outMin = minMax.min;
+					outMax = minMax.max;
+					if(minMax.min === minMax.max){
+						return lastRolled;
+					}
+					while(lastRolled === minMax.max){
+						wildrolled += lastRolled;
+						lastRolled = mimMax(scope);
+					}
+					return wildrolled;
+				});
+				var out = rolled.reduce(function(sum, val){
+					return sum + val;
+				}, 0);
+				out = new Number(out);
+				out.rolls = rolled;
+				out.min = outMin;
+				out.max = outMax;
+				out.x = x;
+				out.mode = 'w';
+				return out;
+			};
+		},
+
+		'random': function(minFun, maxFun){
+			return function(scope){
+				var rawRandom = Math.random();
+				var max = maxFun(scope);
+				var min = minFun(scope);
+				var diff = max - min;
+				var rawRandom = diff * rawRandom;
+				var rndNumber = Math.round(rawRandom + min);
+				rndNumber = new Number(rndNumber);
+				rndNumber.min = min;
+				rndNumber.max = max;
+				return rndNumber;
+			};
+		},
+
+		'+': function(v1, v2){
+			return function(scope){
+				var rightSide = v1(scope);
+				var leftSide = v2(scope);
+				var sum = rightSide + leftSide;
+				sum = new Number(sum);
+				sum.op = '+';
+				sum.rightSide = rightSide;
+				sum.leftSide = leftSide;
+				return sum;
+			};
+		},
+
+		'-': function(v1, v2){
+			return function(scope){
+				var rightSide = v1(scope);
+				var leftSide = v2(scope);
+				var sum = rightSide - leftSide;
+				sum = new Number(sum);
+				sum.op = '-';
+				sum.rightSide = rightSide;
+				sum.leftSide = leftSide;
+				return sum;
+			};
+		},
+
+		'*': function(v1, v2){
+			return function(scope){
+				var rightSide = v1(scope);
+				var leftSide = v2(scope);
+				var tots = rightSide * leftSide;
+				tots = new Number(tots);
+				tots.op = '*';
+				tots.rightSide = rightSide;
+				tots.leftSide = leftSide;
+				return tots;
+			};
+		},
+
+		'/': function(v1, v2){
+			return function(scope){
+				var rightSide = v1(scope);
+				var leftSide = v2(scope);
+				var tots = rightSide / leftSide;
+				tots = new Number(tots);
+				tots.op = '/';
+				tots.rightSide = rightSide;
+				tots.leftSide = leftSide;
+				return tots;
+			};
+		}
 	};
 
-	var fixDice = function(dice){
-		if(dice.min == 1){
-			dice.min = function(){ return 1; };
-		}
-
-		if(dice.x == 1){
-			dice.x = function(){ return 1; };
-		}
-
-		return dice;
+	function resolve_ops(args){
+		args = args || [];
+		return args.map(resolve_op);
 	};
 
-	var reduceThemBones = function(acc, diceSpec){
-		if(_.contains(["+", "-", "*", "/"], diceSpec)){
-			acc.mode = diceSpec;
-			return acc;
-		}
-
-		var rollRes = rollThemBones(diceSpec, acc.scope);
-		var rollSum = rollRes.reduce(sum);
-		acc.rolls = acc.rolls.concat(rollRes);
-		if(acc.mode == "+"){
-			acc.sum += rollSum;
-		} else if(acc.mode == "-") {
-			acc.sum -= rollSum;
-		} else if(acc.mode == "*") {
-			acc.sum *= rollSum;
-		} else if(acc.mode == "/") {
-			acc.sum /= rollSum;
-		}
-		return acc;
-	};
-
-	var rollABone = function(min, max, mode){
-		if(min == max){
-			return max;
-		}
-		var lastRes = _.random(min, max);
-		if(mode == "d"){
-			return lastRes;
-		}
-		var res = lastRes;
-		while(lastRes == max){
-			lastRes = _.random(min, max);
-			res += lastRes;
-		}
-		return res;
-	};
-
-	var rollThemBones = function(diceSpec, scope){
-		diceSpec = fixDice(diceSpec);
-		var rng = _.range(0, diceSpec.x(scope));
-		return rng.map(function(){
-			return rollABone(diceSpec.min(scope), diceSpec.max(scope), diceSpec.mode);
-		});
+	function resolve_op(opObj){
+		var subArgs = resolve_ops(opObj.args);
+		return ops[opObj.op].apply(opObj, subArgs);
 	};
 
 	var result = {
+
 		eval: function(parsed, scope){
 			scope = scope || {};
-			parsed = simplifyParsed(parsed);
-			var acc = {sum: 0, mode: "+", rolls: [], 'scope':scope}
+			var ops = resolve_op(parsed)
+			return ops(scope);
+
+			/*var acc = {sum: 0, mode: "+", rolls: [], 'scope':scope}
 			var reduced = parsed.reduce(reduceThemBones, acc);
-			return {sum: reduced.sum, rolls: reduced.rolls};
-		}
+			return {sum: reduced.sum, rolls: reduced.rolls};*/
+		},
+
+		'ops':ops
 	}
 
 	return result;

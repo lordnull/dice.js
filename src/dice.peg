@@ -2,75 +2,63 @@ start
   = dicerolls
 
 dicerolls
-  = diceroll operation dicerolls
-  / diceroll
+	= v1:multiplicationSeq op:additionOp v2:additionSeq { return {'op':op, args: [v1, v2] }; }
+	/ out:additionSeq { return out; }
+
+multiplicationOp
+  = ws "*" ws { return '*'; }
+	/ ws "/" ws { return '/'; }
+
+multiplicationSeq
+  = v1:diceroll op:multiplicationOp v2:multiplicationSeq { return {'op':op, args:[v1, v2] }; }
+	/ d:diceroll { return d; }
+
+additionSeq
+	= v1:multiplicationSeq op:additionOp v2:additionSeq { return {'op':op, args:[v1, v2]}; }
+	/ op:multiplicationSeq { return op; }
+
+additionOp
+  = ws "+" ws { return "+"; }
+	/ ws "-" ws { return "-"; }
 
 diceroll
-  = x:intval mode:rollmode mm:minmax { return {'x':x, 'mode':mode, 'min':mm.min, 'max':mm.max}; }
-  / mode:rollmode mm:minmax { return {'x':1, 'mode':mode, 'min':mm.min, 'max':mm.max}; }
-  / x:intval { return {'x':1, 'mode':'d', 'min':x, 'max':x}; }
-  / mm:minmax { return {'x':1, 'mode':'d', 'min':mm.min, 'max':mm.max}; }
+  = x:intval mode:rollmode mm:maybe_minmax { return {'op':mode, 'args':[x, mm]} }
+  / mode:rollmode mm:maybe_minmax { return {'op':mode, 'args':[1, mm]}; }
+  / mm:minmax { return { 'op':'d', 'args':[ {'op':'static', 'value':1}, mm]}; }
+  / x:intval { return x; }
 
 rollmode
   = "d"
   / "w"
 
-minmax
-  = min:intval ".." max:intval { return {'min':min, 'max':max}; }
-  / max:intval {return {'min':1, 'max':max}; }
+maybe_minmax
+  = mm:minmax { return mm; }
+  / max:intval { return {'op':'random', 'args':[{'op':'static', 'args':[], 'value':1}, max]}; }
 
-operation
-  = ws op:[+-] ws { return op; }
-	/ ws "*" ws { return "*"; }
-	/ ws "/" ws { return "/"; }
+minmax
+  = min:intval ".." max:intval { return {'op':'random', 'args':[min, max]}; }
 
 ws
   = [ ]*
 
 intval
   = i:integer {
-		var func = function(){
-			return i;
-		};
-		func.static = true;
-		return func;
+		return {'op': 'static', value: i};
 	}
-  / v:variable {
-		var func = function(scope){
-			return scope[v];
-		};
-		func.static = false;
-		func.variable = v;
-		func.operation = "none";
-		return func;
+  / l:lookup{
+		return l;
 	}
-	/ "f" v:variable {
-		var func = function(scope){
-			return Math.floor(scope[v]);
-		};
-		func.static = false;
-		func.variable = v;
-		func.operation = "floor";
-		return func;
+	/ f:mathit v:lookup{
+		return {'op':f, args:[v]};
 	}
-	/ "r" v:variable {
-		var func = function(scope){
-			 return Math.round(scope[v]);
-		};
-		func.static = false;
-		func.variable = v;
-		func.operation = "round";
-		return func;
-	}
-	/ "c" v:variable {
-		var func = function(scope){
-			return Math.ceil(scope[v]);
-		};
-		func.static = false;
-		func.variable = v;
-		func.operation = "ceiling";
-		return func;
-	}
+
+mathit
+  = "f" { return 'floor'; }
+	/ "r" { return 'round'; }
+	/ "c" { return 'ceil'; }
+
+lookup
+  = v:variable { return {'op':'lookup', 'value':v}; }
 
 variable
   = "[" varname:[a-zA-Z 0-9]+ "]" { return varname.join(""); }
