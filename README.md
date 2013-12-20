@@ -17,15 +17,18 @@ this will be overwritten.
 
 To do a build that generates both uncompressed and minified versions, 
 simply use make. 'make compile' only generates the uncompressed version.
-Both versions are placed in the './build'.
+Both versions are placed in './build'.
 
 Simply include either dice.js or dice.min.js in a script tag, and you're
 off.
 
+If you have peg.js installed and available in your path, you can build
+the dice.parse.js file from it using 'make peg'.
+
 Test
 ====
 
-Tests are run use karma. To do a single run test, use 'make test'.
+Tests are run using karma. To do a single run test, use 'make test'.
 
 Usage
 =====
@@ -152,6 +155,6 @@ thrown.
 Contributing
 ============
 
-Fork and make a pull request with relavent tests. Opening Issues is also
+Fork and make a pull request with relavent tests. Opening issues is also
 welcome.
 
