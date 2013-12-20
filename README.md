@@ -6,13 +6,13 @@ A Generic Dice syntax parser and evaluator for javascript.
 Dependency
 ==========
 
-Underscore.js is used, but no included in the minified or uncompressed
+Underscore.js is used, but not included in the minified or uncompressed
 versions.
 
 Build
 =====
 
-An already build version is included under build; if you build manually,
+An already built version is included under build; if you build manually,
 this will be overwritten.
 
 To do a build that generates both uncompressed and minified versions, 
@@ -34,17 +34,18 @@ Dice.js is a tool to roll dice and fill in certain values based on a given
 scope. In short:
 
     var res = dice.roll(diceString, scopeObject);
-    console.log(res.sum);
-    console.log(res.rolls);
+    console.log(res);
+    console.log(dice.stringify(res));
 
-The sum is the sum of all the rolls, while the rolls is an array of each
-individual dice roll (or integer if that was the case).
+The res is a number that can be used like any other. It has the operations
+attached which can be examined to determine how the total was achieved.
+The easiest way to analyze it is to have dice.js stringify it.
 
 The diceString uses a simple-ish syntax to specify what dice to roll, how
 to roll them, and the sum of the rolls:
 
     diceRoll [operation diceRoll [...]]
-        operation: "+" | "-"
+        operation: "+" | "-" | "*" | "/"
         diceRoll: maybeInteger | [numDice] rollMode [min ".."] max
             numDice: maybeInteger
             rollMode: "d" | "w"
@@ -139,8 +140,13 @@ The replacement works anywhere an integer can go:
     3d2..[Weapon Die]
     [Character Level]d6
 
-Note that only integers are supported when using the scope. If a property
-is referenced in the roll that does not exist in the scope, and error is
+If the scope contains values that are not integers, the syntax allows you
+to define how to handle that. Preface the variable box with 'f' for round
+down (floor), 'c' for round up (ceiling), or 'r' for round to nearest.
+
+    1d20 + f[Half Level]
+
+If the Half level was used without the 'f' tag, an exception would be
 thrown.
 
 Contributing
@@ -148,3 +154,4 @@ Contributing
 
 Fork and make a pull request with relavent tests. Opening Issues is also
 welcome.
+
