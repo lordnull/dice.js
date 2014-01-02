@@ -4,6 +4,10 @@ start
 dicerolls
 	= v1:multiplicationSeq op:additionOp v2:additionSeq { return {'op':op, args: [v1, v2] }; }
 	/ out:additionSeq { return out; }
+	/ out:parenExpress { return out; }
+
+parenExpress
+  = "(" ws rolls:dicerolls ws ")" { return {'op':'parenExpress', args: [rolls]} }
 
 multiplicationOp
   = ws "*" ws { return '*'; }
@@ -11,11 +15,14 @@ multiplicationOp
 
 multiplicationSeq
   = v1:diceroll op:multiplicationOp v2:multiplicationSeq { return {'op':op, args:[v1, v2] }; }
+	/ v1:parenExpress op:multiplicationOp v2:multiplicationSeq { return {'op':op, args:[v1, v2] }; }
 	/ d:diceroll { return d; }
+	/ paren:parenExpress { return paren; }
 
 additionSeq
 	= v1:multiplicationSeq op:additionOp v2:additionSeq { return {'op':op, args:[v1, v2]}; }
 	/ op:multiplicationSeq { return op; }
+	/ op:parenExpress { return op; }
 
 additionOp
   = ws "+" ws { return "+"; }
@@ -50,6 +57,9 @@ intval
 	}
 	/ f:mathit v:lookup{
 		return {'op':f, args:[v]};
+	}
+	/ f:mathit ex:parenExpress{
+    return {'op':f + '_express', args:[ex]};
 	}
 
 mathit
