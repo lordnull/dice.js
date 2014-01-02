@@ -154,6 +154,13 @@ describe("Dice", function(){
 					var res = dice.roll(rollStr, scope);
 					expect(res).toEqual(17);
 				});
+
+				it("handles basic parenthsis correctly", function(){
+					var rollStr = "(2 + 3) * 7";
+					var res = dice.roll(rollStr, {});
+					expect(res).toEqual(35);
+				});
+
     });
 });
 

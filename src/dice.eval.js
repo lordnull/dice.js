@@ -164,7 +164,18 @@ dice.eval = (function(){
 				tots.leftSide = leftSide;
 				return tots;
 			};
+		},
+
+		'parenExpress': function(op){
+			return function(scope){
+				var tots = op(scope);
+				tots = new Number(tots);
+				tots.op = 'parenExpress';
+				tots.expression = ops;
+				return tots;
+			};
 		}
+
 	};
 
 	function resolve_ops(args){
