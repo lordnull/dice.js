@@ -159,6 +159,8 @@ describe("Dice", function(){
 					var rollStr = "(2 + 3) * 7";
 					var res = dice.roll(rollStr, {});
 					expect(res).toEqual(35);
+					var stringy = dice.stringify(res);
+					expect(stringy).toEqual("( 2 + 3 ) * 7");
 				});
 
     });

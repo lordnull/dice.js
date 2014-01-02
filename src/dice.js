@@ -8,6 +8,11 @@ dice = {
 	},
 
 	stringify_op: function(evaled_op){
+		if(evaled_op.op === "parenExpress"){
+			var sub = dice.stringify(evaled_op.expression);
+			return "( " + sub + " )";
+		}
+
 		var rs = dice.stringify(evaled_op.rightSide);
 		var ls = dice.stringify(evaled_op.leftSide);
 		return rs + ' ' + evaled_op.op + ' ' + ls;

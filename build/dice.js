@@ -8,6 +8,11 @@ dice = {
 	},
 
 	stringify_op: function(evaled_op){
+		if(evaled_op.op === "parenExpress"){
+			var sub = dice.stringify(evaled_op.expression);
+			return "( " + sub + " )";
+		}
+
 		var rs = dice.stringify(evaled_op.rightSide);
 		var ls = dice.stringify(evaled_op.leftSide);
 		return rs + ' ' + evaled_op.op + ' ' + ls;
@@ -1382,10 +1387,10 @@ dice.eval = (function(){
 		'parenExpress': function(op){
 			return function(scope){
 				var tots = op(scope);
-				tots = new Number(tots);
-				tots.op = 'parenExpress';
-				tots.expression = ops;
-				return tots;
+				outtots = new Number(tots);
+				outtots.op = 'parenExpress';
+				outtots.expression = tots;
+				return outtots;
 			};
 		}
 

@@ -169,10 +169,10 @@ dice.eval = (function(){
 		'parenExpress': function(op){
 			return function(scope){
 				var tots = op(scope);
-				tots = new Number(tots);
-				tots.op = 'parenExpress';
-				tots.expression = ops;
-				return tots;
+				outtots = new Number(tots);
+				outtots.op = 'parenExpress';
+				outtots.expression = tots;
+				return outtots;
 			};
 		}
 
