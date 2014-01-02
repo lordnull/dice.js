@@ -7,7 +7,7 @@ dicerolls
 	/ out:parenExpress { return out; }
 
 parenExpress
-  = "(" ws rolls:dicerolls ws ")" { return {'op':'parenExpress', args: [rolls]} }
+  = "(" ws rolls:dicerolls ws ")" { return {'op':'paren_express', args: [rolls]} }
 
 multiplicationOp
   = ws "*" ws { return '*'; }
@@ -59,7 +59,7 @@ intval
 		return {'op':f, args:[v]};
 	}
 	/ f:mathit ex:parenExpress{
-    return {'op':f + '_express', args:[ex]};
+    return {'op':f, args:ex.args};
 	}
 
 mathit

@@ -7,12 +7,17 @@ dice = {
 		return evaled;
 	},
 
-	stringify_op: function(evaled_op){
-		if(evaled_op.op === "parenExpress"){
-			var sub = dice.stringify(evaled_op.expression);
-			return "( " + sub + " )";
+	stringify_expression: function(evaled_op){
+		var sub = dice.stringify(evaled_op.expression);
+		var prefix = evaled_op.op[0];
+		if(prefix === 'p'){
+			prefix = '';
 		}
+		
+		return prefix + "( " + sub + " )";
+	},
 
+	stringify_op: function(evaled_op){
 		var rs = dice.stringify(evaled_op.rightSide);
 		var ls = dice.stringify(evaled_op.leftSide);
 		return rs + ' ' + evaled_op.op + ' ' + ls;
@@ -25,6 +30,10 @@ dice = {
 	},
 
 	stringify: function(evaled){
+		if(evaled.expression){
+			return dice.stringify_expression(evaled);
+		}
+
 		if(evaled.op){
 			return dice.stringify_op(evaled);
 		}
@@ -285,7 +294,7 @@ dice.parse = (function(){
           pos = clone(pos1);
         }
         if (result0 !== null) {
-          result0 = (function(offset, line, column, rolls) { return {'op':'parenExpress', args: [rolls]} })(pos0.offset, pos0.line, pos0.column, result0[2]);
+          result0 = (function(offset, line, column, rolls) { return {'op':'paren_express', args: [rolls]} })(pos0.offset, pos0.line, pos0.column, result0[2]);
         }
         if (result0 === null) {
           pos = clone(pos0);
@@ -853,7 +862,7 @@ dice.parse = (function(){
               }
               if (result0 !== null) {
                 result0 = (function(offset, line, column, f, ex) {
-                  return {'op':f + '_express', args:[ex]};
+                  return {'op':f, args:ex.args};
               	})(pos0.offset, pos0.line, pos0.column, result0[0], result0[1]);
               }
               if (result0 === null) {
@@ -1245,19 +1254,31 @@ dice.eval = (function(){
 
 		'floor': function(value){
 			return function(scope){
-				return Math.floor(value(scope));
+				var floorable = value(scope);
+				var tots = new Number(Math.floor(floorable));
+				tots.op = 'floor';
+				tots.expression = floorable;
+				return tots;
 			}
 		},
 
 		'ceil': function(value){
 			return function(scope){
-				return Math.ceil(value(scope));
+				var ceilable = value(scope);
+				var tots = new Number(Math.ceil(ceilable));
+				tots.op = 'ceil';
+				tots.expression = ceilable;
+				return tots;
 			}
 		},
 
 		'round': function(value){
 			return function(scope){
-				return Math.round(value(scope));
+				var roundable = value(scope);
+				var tots = new Number(Math.round(roundable));
+				tots.op = 'round';
+				tots.expression = roundable;
+				return tots;
 			}
 		},
 
@@ -1384,11 +1405,11 @@ dice.eval = (function(){
 			};
 		},
 
-		'parenExpress': function(op){
+		'paren_express': function(op){
 			return function(scope){
 				var tots = op(scope);
 				outtots = new Number(tots);
-				outtots.op = 'parenExpress';
+				outtots.op = 'paren_express';
 				outtots.expression = tots;
 				return outtots;
 			};

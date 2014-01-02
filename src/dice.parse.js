@@ -246,7 +246,7 @@ dice.parse = (function(){
           pos = clone(pos1);
         }
         if (result0 !== null) {
-          result0 = (function(offset, line, column, rolls) { return {'op':'parenExpress', args: [rolls]} })(pos0.offset, pos0.line, pos0.column, result0[2]);
+          result0 = (function(offset, line, column, rolls) { return {'op':'paren_express', args: [rolls]} })(pos0.offset, pos0.line, pos0.column, result0[2]);
         }
         if (result0 === null) {
           pos = clone(pos0);
@@ -814,7 +814,7 @@ dice.parse = (function(){
               }
               if (result0 !== null) {
                 result0 = (function(offset, line, column, f, ex) {
-                  return {'op':f + '_express', args:[ex]};
+                  return {'op':f, args:ex.args};
               	})(pos0.offset, pos0.line, pos0.column, result0[0], result0[1]);
               }
               if (result0 === null) {

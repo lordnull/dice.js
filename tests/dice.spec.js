@@ -163,6 +163,20 @@ describe("Dice", function(){
 					expect(stringy).toEqual("( 2 + 3 ) * 7");
 				});
 
+				var testThings = [
+					["f(10 / 3)", 3, "f( 10 / 3 )"],
+					["r(10/3)", 3, "r( 10 / 3 )"],
+					["c(10 /3)", 4, "c( 10 / 3 )"]
+				];
+				testThings.map(function(ar){
+					it("round evals " + ar[0], function(){
+						var res = dice.roll(ar[0], {});
+						expect(res).toEqual(ar[1]);
+						var stringy = dice.stringify(res);
+						expect(stringy).toEqual(ar[2]);
+					});
+				});
+
     });
 });
 
