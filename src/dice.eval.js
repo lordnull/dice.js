@@ -27,19 +27,31 @@ dice.eval = (function(){
 
 		'floor': function(value){
 			return function(scope){
-				return Math.floor(value(scope));
+				var floorable = value(scope);
+				var tots = new Number(Math.floor(floorable));
+				tots.op = 'floor';
+				tots.expression = floorable;
+				return tots;
 			}
 		},
 
 		'ceil': function(value){
 			return function(scope){
-				return Math.ceil(value(scope));
+				var ceilable = value(scope);
+				var tots = new Number(Math.ceil(ceilable));
+				tots.op = 'ceil';
+				tots.expression = ceilable;
+				return tots;
 			}
 		},
 
 		'round': function(value){
 			return function(scope){
-				return Math.round(value(scope));
+				var roundable = value(scope);
+				var tots = new Number(Math.round(roundable));
+				tots.op = 'round';
+				tots.expression = roundable;
+				return tots;
 			}
 		},
 
@@ -164,7 +176,18 @@ dice.eval = (function(){
 				tots.leftSide = leftSide;
 				return tots;
 			};
+		},
+
+		'paren_express': function(op){
+			return function(scope){
+				var tots = op(scope);
+				outtots = new Number(tots);
+				outtots.op = 'paren_express';
+				outtots.expression = tots;
+				return outtots;
+			};
 		}
+
 	};
 
 	function resolve_ops(args){

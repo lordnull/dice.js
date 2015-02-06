@@ -15,7 +15,11 @@ describe("Dice", function(){
             "3d6 + 1d12", "d20 + [Con Mod]", "3d[W]",
             "3d[W] + 2 + [Strength Mod] + [Enhance]d12", "3d6 + 1w6",
 						"3d6 + -2", "3d6 * 2", "15 / 3", "f[scope var]",
-						"3dr[roundable]", "c[tough]w7", "3..5"];
+						"3dr[roundable]", "c[tough]w7", "3..5", "(1)", "(1 + 2)",
+						"( 2d6 * 7)", "1d6 + (3d6 *7 )", "( 1 + 2) * 3",
+						"1d20 * (1d6 * ( 3 + [variable] ) )", "r([variable] + 2)d6",
+						"f(5 /3)", "( c([variable] / 7) + 3) * 2",
+						"3 + r(3/ [variable])"];
 
         strings.map(function(toParse){
 						it("parses " + toParse, function(){
@@ -150,6 +154,29 @@ describe("Dice", function(){
 					var res = dice.roll(rollStr, scope);
 					expect(res).toEqual(17);
 				});
+
+				it("handles basic parenthsis correctly", function(){
+					var rollStr = "(2 + 3) * 7";
+					var res = dice.roll(rollStr, {});
+					expect(res).toEqual(35);
+					var stringy = dice.stringify(res);
+					expect(stringy).toEqual("( 2 + 3 ) * 7");
+				});
+
+				var testThings = [
+					["f(10 / 3)", 3, "f( 10 / 3 )"],
+					["r(10/3)", 3, "r( 10 / 3 )"],
+					["c(10 /3)", 4, "c( 10 / 3 )"]
+				];
+				testThings.map(function(ar){
+					it("round evals " + ar[0], function(){
+						var res = dice.roll(ar[0], {});
+						expect(res).toEqual(ar[1]);
+						var stringy = dice.stringify(res);
+						expect(stringy).toEqual(ar[2]);
+					});
+				});
+
     });
 });
 

@@ -1,10 +1,20 @@
 dice = {
-	version: "0.4.0",
+	version: "0.5.0",
 
 	roll: function(str, scope){
 		var parsed = dice.parse.parse(str);
 		var evaled = dice.eval.eval(parsed, scope);
 		return evaled;
+	},
+
+	stringify_expression: function(evaled_op){
+		var sub = dice.stringify(evaled_op.expression);
+		var prefix = evaled_op.op[0];
+		if(prefix === 'p'){
+			prefix = '';
+		}
+		
+		return prefix + "( " + sub + " )";
 	},
 
 	stringify_op: function(evaled_op){
@@ -20,6 +30,10 @@ dice = {
 	},
 
 	stringify: function(evaled){
+		if(evaled.expression){
+			return dice.stringify_expression(evaled);
+		}
+
 		if(evaled.op){
 			return dice.stringify_op(evaled);
 		}

@@ -7,6 +7,16 @@ dice = {
 		return evaled;
 	},
 
+	stringify_expression: function(evaled_op){
+		var sub = dice.stringify(evaled_op.expression);
+		var prefix = evaled_op.op[0];
+		if(prefix === 'p'){
+			prefix = '';
+		}
+		
+		return prefix + "( " + sub + " )";
+	},
+
 	stringify_op: function(evaled_op){
 		var rs = dice.stringify(evaled_op.rightSide);
 		var ls = dice.stringify(evaled_op.leftSide);
@@ -20,6 +30,10 @@ dice = {
 	},
 
 	stringify: function(evaled){
+		if(evaled.expression){
+			return dice.stringify_expression(evaled);
+		}
+
 		if(evaled.op){
 			return dice.stringify_op(evaled);
 		}
@@ -72,6 +86,7 @@ dice.parse = (function(){
     parse: function(input, startRule) {
       var parseFunctions = {
         "dicerolls": parse_dicerolls,
+        "parenExpress": parse_parenExpress,
         "multiplicationOp": parse_multiplicationOp,
         "multiplicationSeq": parse_multiplicationSeq,
         "additionSeq": parse_additionSeq,
@@ -211,6 +226,78 @@ dice.parse = (function(){
           if (result0 === null) {
             pos = clone(pos0);
           }
+          if (result0 === null) {
+            pos0 = clone(pos);
+            result0 = parse_parenExpress();
+            if (result0 !== null) {
+              result0 = (function(offset, line, column, out) { return out; })(pos0.offset, pos0.line, pos0.column, result0);
+            }
+            if (result0 === null) {
+              pos = clone(pos0);
+            }
+          }
+        }
+        return result0;
+      }
+      
+      function parse_parenExpress() {
+        var result0, result1, result2, result3, result4;
+        var pos0, pos1;
+        
+        pos0 = clone(pos);
+        pos1 = clone(pos);
+        if (input.charCodeAt(pos.offset) === 40) {
+          result0 = "(";
+          advance(pos, 1);
+        } else {
+          result0 = null;
+          if (reportFailures === 0) {
+            matchFailed("\"(\"");
+          }
+        }
+        if (result0 !== null) {
+          result1 = parse_ws();
+          if (result1 !== null) {
+            result2 = parse_dicerolls();
+            if (result2 !== null) {
+              result3 = parse_ws();
+              if (result3 !== null) {
+                if (input.charCodeAt(pos.offset) === 41) {
+                  result4 = ")";
+                  advance(pos, 1);
+                } else {
+                  result4 = null;
+                  if (reportFailures === 0) {
+                    matchFailed("\")\"");
+                  }
+                }
+                if (result4 !== null) {
+                  result0 = [result0, result1, result2, result3, result4];
+                } else {
+                  result0 = null;
+                  pos = clone(pos1);
+                }
+              } else {
+                result0 = null;
+                pos = clone(pos1);
+              }
+            } else {
+              result0 = null;
+              pos = clone(pos1);
+            }
+          } else {
+            result0 = null;
+            pos = clone(pos1);
+          }
+        } else {
+          result0 = null;
+          pos = clone(pos1);
+        }
+        if (result0 !== null) {
+          result0 = (function(offset, line, column, rolls) { return {'op':'paren_express', args: [rolls]} })(pos0.offset, pos0.line, pos0.column, result0[2]);
+        }
+        if (result0 === null) {
+          pos = clone(pos0);
         }
         return result0;
       }
@@ -327,12 +414,51 @@ dice.parse = (function(){
         }
         if (result0 === null) {
           pos0 = clone(pos);
-          result0 = parse_diceroll();
+          pos1 = clone(pos);
+          result0 = parse_parenExpress();
           if (result0 !== null) {
-            result0 = (function(offset, line, column, d) { return d; })(pos0.offset, pos0.line, pos0.column, result0);
+            result1 = parse_multiplicationOp();
+            if (result1 !== null) {
+              result2 = parse_multiplicationSeq();
+              if (result2 !== null) {
+                result0 = [result0, result1, result2];
+              } else {
+                result0 = null;
+                pos = clone(pos1);
+              }
+            } else {
+              result0 = null;
+              pos = clone(pos1);
+            }
+          } else {
+            result0 = null;
+            pos = clone(pos1);
+          }
+          if (result0 !== null) {
+            result0 = (function(offset, line, column, v1, op, v2) { return {'op':op, args:[v1, v2] }; })(pos0.offset, pos0.line, pos0.column, result0[0], result0[1], result0[2]);
           }
           if (result0 === null) {
             pos = clone(pos0);
+          }
+          if (result0 === null) {
+            pos0 = clone(pos);
+            result0 = parse_diceroll();
+            if (result0 !== null) {
+              result0 = (function(offset, line, column, d) { return d; })(pos0.offset, pos0.line, pos0.column, result0);
+            }
+            if (result0 === null) {
+              pos = clone(pos0);
+            }
+            if (result0 === null) {
+              pos0 = clone(pos);
+              result0 = parse_parenExpress();
+              if (result0 !== null) {
+                result0 = (function(offset, line, column, paren) { return paren; })(pos0.offset, pos0.line, pos0.column, result0);
+              }
+              if (result0 === null) {
+                pos = clone(pos0);
+              }
+            }
           }
         }
         return result0;
@@ -377,6 +503,16 @@ dice.parse = (function(){
           }
           if (result0 === null) {
             pos = clone(pos0);
+          }
+          if (result0 === null) {
+            pos0 = clone(pos);
+            result0 = parse_parenExpress();
+            if (result0 !== null) {
+              result0 = (function(offset, line, column, op) { return op; })(pos0.offset, pos0.line, pos0.column, result0);
+            }
+            if (result0 === null) {
+              pos = clone(pos0);
+            }
           }
         }
         return result0;
@@ -707,6 +843,31 @@ dice.parse = (function(){
             }
             if (result0 === null) {
               pos = clone(pos0);
+            }
+            if (result0 === null) {
+              pos0 = clone(pos);
+              pos1 = clone(pos);
+              result0 = parse_mathit();
+              if (result0 !== null) {
+                result1 = parse_parenExpress();
+                if (result1 !== null) {
+                  result0 = [result0, result1];
+                } else {
+                  result0 = null;
+                  pos = clone(pos1);
+                }
+              } else {
+                result0 = null;
+                pos = clone(pos1);
+              }
+              if (result0 !== null) {
+                result0 = (function(offset, line, column, f, ex) {
+                  return {'op':f, args:ex.args};
+              	})(pos0.offset, pos0.line, pos0.column, result0[0], result0[1]);
+              }
+              if (result0 === null) {
+                pos = clone(pos0);
+              }
             }
           }
         }
@@ -1093,19 +1254,31 @@ dice.eval = (function(){
 
 		'floor': function(value){
 			return function(scope){
-				return Math.floor(value(scope));
+				var floorable = value(scope);
+				var tots = new Number(Math.floor(floorable));
+				tots.op = 'floor';
+				tots.expression = floorable;
+				return tots;
 			}
 		},
 
 		'ceil': function(value){
 			return function(scope){
-				return Math.ceil(value(scope));
+				var ceilable = value(scope);
+				var tots = new Number(Math.ceil(ceilable));
+				tots.op = 'ceil';
+				tots.expression = ceilable;
+				return tots;
 			}
 		},
 
 		'round': function(value){
 			return function(scope){
-				return Math.round(value(scope));
+				var roundable = value(scope);
+				var tots = new Number(Math.round(roundable));
+				tots.op = 'round';
+				tots.expression = roundable;
+				return tots;
 			}
 		},
 
@@ -1230,7 +1403,18 @@ dice.eval = (function(){
 				tots.leftSide = leftSide;
 				return tots;
 			};
+		},
+
+		'paren_express': function(op){
+			return function(scope){
+				var tots = op(scope);
+				outtots = new Number(tots);
+				outtots.op = 'paren_express';
+				outtots.expression = tots;
+				return outtots;
+			};
 		}
+
 	};
 
 	function resolve_ops(args){
