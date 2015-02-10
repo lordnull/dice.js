@@ -1,0 +1,28 @@
+{
+  "name": "dice.js",
+  "version": "0.5.0",
+  "homepage": "https://github.com/lordnull/dice.js",
+  "authors": [
+    "Micah Warren <micahw@lordnull.com>"
+  ],
+  "description": "A parser and evaluator for a useful rpg dice syntax.",
+  "main": "dice.js",
+  "moduleType": [
+    "globals"
+  ],
+  "keywords": [
+    "rpg",
+    "dice",
+    "parser",
+    "roll",
+    "peg"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
