@@ -6,8 +6,8 @@ A Generic Dice syntax parser and evaluator for javascript.
 Dependency
 ==========
 
-Underscore.js is used, but not included in the minified or uncompressed
-versions.
+Node's npm can be used to fetch the build and test dependencies. There are
+no run-time dependencies.
 
 Build
 =====
