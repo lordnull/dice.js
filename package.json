@@ -1,0 +1,43 @@
+{
+  "name": "dice.js",
+  "version": "0.5.0",
+  "description": "A parser and evaluator for a useful rpg dice syntax.",
+  "main": "dice.js",
+  "directories": {
+    "test": "tests"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "karma": "~0.10.8",
+    "karma-chrome-launcher": "~0.1.1",
+    "karma-coffee-preprocessor": "~0.1.1",
+    "karma-firefox-launcher": "~0.1.2",
+    "karma-html2js-preprocessor": "~0.1.0",
+    "karma-jasmine": "~0.1.5",
+    "karma-phantomjs-launcher": "~0.1.1",
+    "karma-requirejs": "~0.2.0",
+    "karma-script-launcher": "~0.1.0",
+    "requirejs": "~2.1.9",
+    "peg": "~0.0.0"
+  },
+  "scripts": {
+    "test": "make test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lordnull/dice.js.git"
+  },
+  "keywords": [
+    "rpg",
+    "dice",
+    "parser",
+    "roll",
+    "peg"
+  ],
+  "author": "Micah Warren (Lord Null)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/lordnull/dice.js/issues"
+  },
+  "homepage": "https://github.com/lordnull/dice.js"
+}
