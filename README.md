@@ -37,11 +37,12 @@ Dice.js is a tool to roll dice and fill in certain values based on a given
 scope. In short:
 
     var res = dice.roll(diceString, scopeObject);
-    console.log(res);
+    console.log(+res);
     console.log(dice.stringify(res));
 
 The res is a number that can be used like any other. It has the operations
-attached which can be examined to determine how the total was achieved.
+attached which can be examined to determine how the total was achieved
+(thus why it is coerced into a primitive when logged above).
 The easiest way to analyze it is to have dice.js stringify it.
 
 The diceString uses a simple-ish syntax to specify what dice to roll, how
