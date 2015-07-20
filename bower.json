@@ -6,7 +6,9 @@
     "Micah Warren <micahw@lordnull.com>"
   ],
   "description": "A parser and evaluator for a useful rpg dice syntax.",
-  "main": "dice.js",
+  "main": [
+    "build/dice.js"
+  ],
   "moduleType": [
     "globals"
   ],
