@@ -38,6 +38,12 @@ describe("Dice", function(){
 					expect(res).toEqual(3);
 				});
 
+                it("parses and evals simple rolls", function(){
+                    var res = dice.roll("d20");
+                    expect(res).toBeLessThan(21);
+                    expect(res).toBeGreaterThan(0);
+                });
+
         it("parses and evals a basic scope", function(){
             var scope = {"Key Thing":4};
             var res = dice.roll("[Key Thing]", scope);

@@ -30,7 +30,7 @@ additionOp
 
 diceroll
   = x:intval mode:rollmode mm:maybe_minmax { return {'op':mode, 'args':[x, mm]} }
-  / mode:rollmode mm:maybe_minmax { return {'op':mode, 'args':[1, mm]}; }
+  / mode:rollmode mm:maybe_minmax { return {'op':mode, 'args':[{'op':'static', 'value':1}, mm]}; }
   / mm:minmax { return { 'op':'d', 'args':[ {'op':'static', 'value':1}, mm]}; }
   / x:intval { return x; }
 
