@@ -2,9 +2,24 @@ dice = {
 	version: "0.5.0",
 
 	roll: function(str, scope){
-		var parsed = dice.parse.parse(str);
+		var parsed = dice.parse.parse(dice.correctInput(str));
 		var evaled = dice.eval.eval(parsed, scope);
 		return evaled;
+	},
+
+	correctInput: function(input) {
+		if (input.charAt(0).match(/[dw]/i)) {
+			input = 1 + input;   
+		}
+
+		var match;
+		while ((match = input.match(/\D[dw]\d*/i)) !== null) {
+		var str = match.toString();
+		var edit = str.charAt(0) + 1 + str.substring(1,str.length);
+			input = input.replace(/\D[dw]\d*/i, edit);
+		}
+		input = input.replace(/D/g,'d').replace(/W/g,'w');
+		return input;
 	},
 
 	stringify_expression: function(evaled_op){
