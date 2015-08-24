@@ -7,6 +7,29 @@ dice = {
 		return evaled;
 	},
 
+	statistics: function(str, scope, samples){
+		if(typeof(scope) == "number"){
+			samples = scope;
+			scope = {};
+		}
+		scope = scope || {};
+		samples = samples || 1000;
+		var resultSet = [];
+		var i;
+		for(i = 0; i < samples; i++){
+			resultSet.push(dice.roll(str, scope));
+		}
+		var mean = resultSet.reduce(function(n, acc){ return n + acc; }, 0) / samples;
+		var min = resultSet.reduce(function(n, acc){ return n < acc ? n : acc; }, resultSet[0]);
+		var max = resultSet.reduce(function(n, acc){ return n > acc ? n : acc; }, resultSet[0]);
+		return {
+			'results': resultSet,
+			'mean': mean,
+			'min': parseInt(min.toFixed()),
+			'max': parseInt(max.toFixed())
+		};
+	},
+
 	stringify_expression: function(evaled_op){
 		var sub = dice.stringify(evaled_op.expression);
 		var prefix = evaled_op.op[0];
