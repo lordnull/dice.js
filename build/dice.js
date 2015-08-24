@@ -1,5 +1,5 @@
 dice = {
-	version: "0.5.0",
+	version: "0.7.0",
 
 	roll: function(str, scope){
 		var parsed = dice.parse.parse(str);
