@@ -182,6 +182,37 @@ describe("Dice", function(){
 				expect(stringy).toEqual(ar[2]);
 			});
 		});
+
+		it("evaluates simple statistics with no extra params", function(){
+			var results = dice.statistics("1d1");
+			expect(results.min).toEqual(1);
+			expect(results.max).toEqual(1);
+			expect(results.mean).toEqual(1);
+		});
+
+		it("evaluates simple statistics with only samples", function(){
+			var results = dice.statistics("1d1", 10);
+			expect(results.min).toEqual(1);
+			expect(results.results.length).toEqual(10);
+			expect(results.max).toEqual(1);
+			expect(results.mean).toEqual(1);
+		});
+
+		it("evaluates simple statistics with only scope", function(){
+			var results = dice.statistics("1d[one]", {'one': 1});
+			expect(results.min).toEqual(1);
+			expect(results.max).toEqual(1);
+			expect(results.mean).toEqual(1);
+		});
+
+		it("evaluates simple statistics with both scope and samples", function(){
+			var results = dice.statistics("[one]d1", {'one': 1}, 50);
+			expect(results.min).toEqual(1);
+			expect(results.results.length).toEqual(50);
+			expect(results.max).toEqual(1);
+			expect(results.mean).toEqual(1);
+		});
+
 	});
 });
 
