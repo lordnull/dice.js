@@ -12,23 +12,29 @@ no run-time dependencies.
 Build
 =====
 
-An already built version is included under build; if you build manually,
-this will be overwritten.
+An already built version for use in browsers is included under build; if
+you build manually, this will be overwritten.
 
-To do a build that generates both uncompressed and minified versions, 
+To do a build that generates both uncompressed and minified versions,
 simply use make. 'make compile' only generates the uncompressed version.
 Both versions are placed in './build'.
 
 Simply include either dice.js or dice.min.js in a script tag, and you're
 off.
 
+For use with node, use the files in the src directory; you should only
+need to `var dice = require("./src/dice.js");`.
+
 If you have peg.js installed and available in your path, you can build
-the dice.parse.js file from it using 'make peg'.
+the dice.parse.js file from it using `make peg`.
 
-Test
-====
+Testing
+=======
 
-Tests are run using karma. To do a single run test, use 'make test'.
+Tests are run using karma and jasmine. To do a single run test, use
+`make test`. To Run only browser tests, use `make browser_test`. To
+run only the node tests, use `make node_test`. To leave a browser used
+for testing running for debugging purposes, use `make dbgtest`.
 
 Usage
 =====
@@ -40,12 +46,12 @@ scope. In short:
     console.log(+res);
     console.log(dice.stringify(res));
 
-The res is a number that can be used like any other. It has the operations
-attached which can be examined to determine how the total was achieved
-(thus why it is coerced into a primitive when logged above).
+The res is a number that can be used like any other. It has operations
+attached which allow it to be examined to determine how the total was
+achieved (thus why it is coerced into a primitive when logged above).
 The easiest way to analyze it is to have dice.js stringify it.
 
-The diceString uses a simple-ish syntax to specify what dice to roll, how
+The `diceString` uses a simple-ish syntax to specify what dice to roll, how
 to roll them, and the sum of the rolls:
 
     diceRoll [operation diceRoll [...]]
@@ -82,9 +88,9 @@ If you have played Star Wars d6, using wild die is supported as well:
 
     3d6 + 1w6
 
-Using "w" instead of "d" means that die will be re-rolled if it comes up
-as a maximum. All the repeat rolls will show up as a single roll in the 
-'rolls' property of the returned object.
+Using `w` instead of `d` means that die will be re-rolled if it comes up
+as a maximum. All the repeat rolls will show up as a single roll in the
+`rolls` property of the returned object.
 
 In some systems, there may be a minimum for the roll; in DnD, some weapons
 allow one to re-roll all ones:
@@ -130,10 +136,10 @@ turns you, you can:
 
     roll = "d20 + [Strength]";
 
-When the roll is evaluated with the scope of the character, "[Strength]" is
+When the roll is evaluated with the scope of the character, `[Strength]` is
 replaced with the Strength property of the character. The previous two
 examples are equivalent, with the bonus that if the character changes, new
-evaludations will use the updated properties.
+evaluations will use the updated properties.
 
     dice.roll(roll, character);
 
@@ -145,13 +151,25 @@ The replacement works anywhere an integer can go:
     [Character Level]d6
 
 If the scope contains values that are not integers, the syntax allows you
-to define how to handle that. Preface the variable box with 'f' for round
-down (floor), 'c' for round up (ceiling), or 'r' for round to nearest.
+to define how to handle that. Preface the variable box with `f` for round
+down (floor), `c` for round up (ceiling), or `r` for round to nearest.
 
     1d20 + f[Half Level]
 
-If the Half level was used without the 'f' tag, an exception would be
+If the Half level was used without the `f` tag, an exception would be
 thrown.
+
+Subexpressions are supported using parenthesis, along with rounding on
+those expressions when used with `f`, `c`, and `r`. This allows
+subexpressions to be used any place an integer is required as well. For
+example, the half level above could be re-written without needing an
+explicit half level on the scope.
+
+    1d20 + f([Level] / 2)
+
+Or if you need to roll half your level in d6's:
+
+    c([Level / d])d6
 
 Contributing
 ============
