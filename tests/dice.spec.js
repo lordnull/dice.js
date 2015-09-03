@@ -1,12 +1,14 @@
 // Testing min.js because if the min works, the unminned should also work
+if(typeof require !== 'undefined'){
+    var dice = require('../src/dice.js');
+}
+
 describe("Dice", function(){
 
 	it("inits properly", function(){
 		expect(dice).toBeDefined();
 		expect(dice.eval).toBeDefined();
 		expect(dice.parse).toBeDefined();
-		expect(dice.eval.eval).toBeDefined();
-		expect(dice.parse.parse).toBeDefined();
 		expect(dice.roll).toBeDefined();
 	});
 
@@ -24,7 +26,7 @@ describe("Dice", function(){
 		strings.map(function(toParse){
 			it("parses " + toParse, function(){
 				var parseIt = function(){
-					dice.parse.parse(toParse);
+					dice.parse(toParse);
 				}
 				expect(parseIt).not.toThrow();
 			});
