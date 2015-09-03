@@ -3,7 +3,7 @@ var parse = require('./parser.js');
 var eval = require('./evaluate.js');
 dice.parse = parse.parse;
 dice.eval = eval.eval;
-dice.version = "0.7.0";
+dice.version = "0.8.0";
 
 function roll(str, scope){
 	var parsed = parse.parse(str);
