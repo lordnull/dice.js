@@ -169,7 +169,7 @@ explicit half level on the scope.
 
 Or if you need to roll half your level in d6's:
 
-    c([Level / d])d6
+    c([Level / 2])d6
 
 Contributing
 ============
