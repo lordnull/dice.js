@@ -22,8 +22,8 @@ Both versions are placed in './build'.
 Simply include either dice.js or dice.min.js in a script tag, and you're
 off.
 
-For use with node, use the files in the src directory; you should only
-need to `var dice = require("./src/dice.js");`.
+For use with node and installed with npm, you should only need to do the usual
+`var dice = require("./src/dice.js");`.
 
 If you have peg.js installed and available in your path, you can build
 the dice.parse.js file from it using `make peg`.

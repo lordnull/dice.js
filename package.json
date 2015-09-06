@@ -2,7 +2,7 @@
   "name": "dice.js",
   "version": "0.8.0",
   "description": "A parser and evaluator for a useful rpg dice syntax.",
-  "main": "dice.js",
+  "main": "src/dice.js",
   "directories": {
     "test": "tests"
   },
