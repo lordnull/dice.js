@@ -1,79 +1,359 @@
-dice = {
-	version: "0.7.0",
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.dice = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+module.exports={
+  "name": "dice.js",
+  "version": "0.8.0",
+  "description": "A parser and evaluator for a useful rpg dice syntax.",
+  "main": "src/dice.js",
+  "directories": {
+    "test": "tests"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "karma": "~0.10.8",
+    "karma-chrome-launcher": "~0.1.1",
+    "karma-coffee-preprocessor": "~0.1.1",
+    "karma-firefox-launcher": "~0.1.2",
+    "karma-html2js-preprocessor": "~0.1.0",
+    "karma-jasmine": "~0.1.5",
+    "karma-phantomjs-launcher": "~0.1.1",
+    "karma-requirejs": "~0.2.0",
+    "karma-script-launcher": "~0.1.0",
+    "requirejs": "~2.1.9",
+    "pegjs": "~0.9.0",
+    "jasmine-node": "~1.14.5",
+    "browserify": "~11.0.1"
+  },
+  "scripts": {
+    "test": "make test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lordnull/dice.js.git"
+  },
+  "keywords": [
+    "rpg",
+    "dice",
+    "parser",
+    "roll",
+    "peg"
+  ],
+  "author": "Micah Warren (Lord Null)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/lordnull/dice.js/issues"
+  },
+  "homepage": "https://github.com/lordnull/dice.js"
+}
 
-	roll: function(str, scope){
-		var parsed = dice.parse.parse(str);
-		var evaled = dice.eval.eval(parsed, scope);
-		return evaled;
-	},
+},{}],2:[function(require,module,exports){
+var dice = {
+	parse: require('./parser').parse,
+	eval: require('./evaluate').eval,
+	version: require('../package').version
+};
 
-	statistics: function(str, scope, samples){
-		if(typeof(scope) == "number"){
-			samples = scope;
-			scope = {};
-		}
-		scope = scope || {};
-		samples = samples || 1000;
-		var resultSet = [];
-		var i;
-		for(i = 0; i < samples; i++){
-			resultSet.push(dice.roll(str, scope));
-		}
-		var mean = resultSet.reduce(function(n, acc){ return n + acc; }, 0) / samples;
-		var min = resultSet.reduce(function(n, acc){ return n < acc ? n : acc; }, resultSet[0]);
-		var max = resultSet.reduce(function(n, acc){ return n > acc ? n : acc; }, resultSet[0]);
-		return {
-			'results': resultSet,
-			'mean': mean,
-			'min': parseInt(min.toFixed()),
-			'max': parseInt(max.toFixed())
+function roll(str, scope){
+	var parsed = dice.parse(str);
+	var evaled = dice.eval(parsed, scope);
+	return evaled;
+};
+
+dice.roll = roll;
+
+dice.statistics = function(str, scope, samples){
+	if(typeof(scope) == "number"){
+		samples = scope;
+		scope = {};
+	}
+	scope = scope || {};
+	samples = samples || 1000;
+	var resultSet = [];
+	var i;
+	for(i = 0; i < samples; i++){
+		resultSet.push(roll(str, scope));
+	}
+	var mean = resultSet.reduce(function(n, acc){ return n + acc; }, 0) / samples;
+	var min = resultSet.reduce(function(n, acc){ return n < acc ? n : acc; }, resultSet[0]);
+	var max = resultSet.reduce(function(n, acc){ return n > acc ? n : acc; }, resultSet[0]);
+	return {
+		'results': resultSet,
+		'mean': mean,
+		'min': parseInt(min.toFixed()),
+		'max': parseInt(max.toFixed())
+	};
+};
+
+function stringify_expression(evaled_op){
+	var sub = stringify(evaled_op.expression);
+	var prefix = evaled_op.op[0];
+	if(prefix === 'p'){
+		prefix = '';
+	}
+	
+	return prefix + "( " + sub + " )";
+};
+
+function stringify_op(evaled_op){
+	var rs = stringify(evaled_op.rightSide);
+	var ls = stringify(evaled_op.leftSide);
+	return rs + ' ' + evaled_op.op + ' ' + ls;
+};
+
+function stringify_rolls(evaled_roll){
+	var minStr = evaled_roll.min > 1 ? evaled_roll.min + '..' : '';
+	var preamble = evaled_roll.x + evaled_roll.mode + minStr + evaled_roll.max + ':[';
+	return preamble + evaled_roll.rolls.join(', ') + ']';
+};
+
+function stringify(evaled){
+	if(evaled.expression){
+		return stringify_expression(evaled);
+	}
+
+	if(evaled.op){
+		return stringify_op(evaled);
+	}
+
+	if(evaled.rolls){
+		return stringify_rolls(evaled);
+	}
+
+	return evaled.toString();
+};
+
+dice.stringify = stringify;
+
+var k;
+for(k in dice){
+    exports[k] = dice[k];
+}
+
+return dice;
+
+},{"../package":1,"./evaluate":3,"./parser":4}],3:[function(require,module,exports){
+
+function makeSeq(endIndex){
+	var seq = [];
+	seq[endIndex] = true;
+	for(var i = 0; i < seq.length; i++){
+		seq[i] = true;
+	}
+	return seq;
+};
+
+var ops = {
+
+	'static': function(){
+		var outValue = this.value;
+		return function(){
+			return outValue;
 		};
 	},
 
-	stringify_expression: function(evaled_op){
-		var sub = dice.stringify(evaled_op.expression);
-		var prefix = evaled_op.op[0];
-		if(prefix === 'p'){
-			prefix = '';
+	'lookup': function(){
+		var variableName = this.value;
+		return function(scope){
+			return scope[variableName];
 		}
-		
-		return prefix + "( " + sub + " )";
 	},
 
-	stringify_op: function(evaled_op){
-		var rs = dice.stringify(evaled_op.rightSide);
-		var ls = dice.stringify(evaled_op.leftSide);
-		return rs + ' ' + evaled_op.op + ' ' + ls;
+	'floor': function(value){
+		return function(scope){
+			var floorable = value(scope);
+			var tots = new Number(Math.floor(floorable));
+			tots.op = 'floor';
+			tots.expression = floorable;
+			return tots;
+		}
 	},
 
-	stringify_rolls: function(evaled_roll){
-		var minStr = evaled_roll.min > 1 ? evaled_roll.min + '..' : '';
-		var preamble = evaled_roll.x + evaled_roll.mode + minStr + evaled_roll.max + ':[';
-		return preamble + evaled_roll.rolls.join(', ') + ']';
+	'ceil': function(value){
+		return function(scope){
+			var ceilable = value(scope);
+			var tots = new Number(Math.ceil(ceilable));
+			tots.op = 'ceil';
+			tots.expression = ceilable;
+			return tots;
+		}
 	},
 
-	stringify: function(evaled){
-		if(evaled.expression){
-			return dice.stringify_expression(evaled);
+	'round': function(value){
+		return function(scope){
+			var roundable = value(scope);
+			var tots = new Number(Math.round(roundable));
+			tots.op = 'round';
+			tots.expression = roundable;
+			return tots;
 		}
+	},
 
-		if(evaled.op){
-			return dice.stringify_op(evaled);
-		}
+	'd': function(numRolls, minMax){
+		return function(scope){
+			var x = numRolls(scope);
+			var seq = makeSeq(x - 1);
+			var outMin, outMax;
+			var rolled = seq.map(function(){
+				var rolledRet = minMax(scope);
+				outMin = rolledRet.min;
+				outMax = rolledRet.max;
+				return rolledRet;
+			});
+			var out = rolled.reduce(function(sum, val){
+				return sum + val;
+			}, 0);
+			out = new Number(out);
+			out.rolls = rolled;
+			out.min = outMin;
+			out.max = outMax;
+			out.x = x;
+			out.mode = 'd';
+			return out;
+		};
+	},
 
-		if(evaled.rolls){
-			return dice.stringify_rolls(evaled);
-		}
+	'w': function(numRolls, minMax){
+		return function(scope){
+			var x = numRolls(scope);
+			var seq = makeSeq(x - 1);
+			var outMin, outMax;
+			var rolled = seq.map(function(){
+				var lastRolled = minMax(scope);
+				var wildrolled = 0;
+				outMin = minMax.min;
+				outMax = minMax.max;
+				if(minMax.min === minMax.max){
+					return lastRolled;
+				}
+				while(lastRolled === minMax.max){
+					wildrolled += lastRolled;
+					lastRolled = mimMax(scope);
+				}
+				return wildrolled;
+			});
+			var out = rolled.reduce(function(sum, val){
+				return sum + val;
+			}, 0);
+			out = new Number(out);
+			out.rolls = rolled;
+			out.min = outMin;
+			out.max = outMax;
+			out.x = x;
+			out.mode = 'w';
+			return out;
+		};
+	},
 
-		return evaled.toString();
+	'random': function(minFun, maxFun){
+		return function(scope){
+			var rawRandom = Math.random();
+			var max = maxFun(scope);
+			var min = minFun(scope);
+			var diff = max - min;
+			var rawRandom = diff * rawRandom;
+			var rndNumber = Math.round(rawRandom + min);
+			rndNumber = new Number(rndNumber);
+			rndNumber.min = min;
+			rndNumber.max = max;
+			return rndNumber;
+		};
+	},
+
+	'+': function(v1, v2){
+		return function(scope){
+			var rightSide = v1(scope);
+			var leftSide = v2(scope);
+			var sum = rightSide + leftSide;
+			sum = new Number(sum);
+			sum.op = '+';
+			sum.rightSide = rightSide;
+			sum.leftSide = leftSide;
+			return sum;
+		};
+	},
+
+	'-': function(v1, v2){
+		return function(scope){
+			var rightSide = v1(scope);
+			var leftSide = v2(scope);
+			var sum = rightSide - leftSide;
+			sum = new Number(sum);
+			sum.op = '-';
+			sum.rightSide = rightSide;
+			sum.leftSide = leftSide;
+			return sum;
+		};
+	},
+
+	'*': function(v1, v2){
+		return function(scope){
+			var rightSide = v1(scope);
+			var leftSide = v2(scope);
+			var tots = rightSide * leftSide;
+			tots = new Number(tots);
+			tots.op = '*';
+			tots.rightSide = rightSide;
+			tots.leftSide = leftSide;
+			return tots;
+		};
+	},
+
+	'/': function(v1, v2){
+		return function(scope){
+			var rightSide = v1(scope);
+			var leftSide = v2(scope);
+			var tots = rightSide / leftSide;
+			tots = new Number(tots);
+			tots.op = '/';
+			tots.rightSide = rightSide;
+			tots.leftSide = leftSide;
+			return tots;
+		};
+	},
+
+	'paren_express': function(op){
+		return function(scope){
+			var tots = op(scope);
+			outtots = new Number(tots);
+			outtots.op = 'paren_express';
+			outtots.expression = tots;
+			return outtots;
+		};
 	}
 
 };
-dice.parse = (function() {
+
+function resolve_ops(args){
+	args = args || [];
+	return args.map(resolve_op);
+};
+
+function resolve_op(opObj){
+	var subArgs = resolve_ops(opObj.args);
+	return ops[opObj.op].apply(opObj, subArgs);
+};
+
+
+exports.eval = function(parsed, scope){
+	scope = scope || {};
+	var ops = resolve_op(parsed)
+	return ops(scope);
+
+	/*var acc = {sum: 0, mode: "+", rolls: [], 'scope':scope}
+	var reduced = parsed.reduce(reduceThemBones, acc);
+	return {sum: reduced.sum, rolls: reduced.rolls};*/
+}
+
+exports.ops = ops;
+
+
+},{}],4:[function(require,module,exports){
+module.exports = (function() {
+  "use strict";
+
   /*
-   * Generated by PEG.js 0.8.0.
+   * Generated by PEG.js 0.9.0.
    *
-   * http://pegjs.majda.cz/
+   * http://pegjs.org/
    */
 
   function peg$subclass(child, parent) {
@@ -82,107 +362,106 @@ dice.parse = (function() {
     child.prototype = new ctor();
   }
 
-  function SyntaxError(message, expected, found, offset, line, column) {
+  function peg$SyntaxError(message, expected, found, location) {
     this.message  = message;
     this.expected = expected;
     this.found    = found;
-    this.offset   = offset;
-    this.line     = line;
-    this.column   = column;
-
+    this.location = location;
     this.name     = "SyntaxError";
+
+    if (typeof Error.captureStackTrace === "function") {
+      Error.captureStackTrace(this, peg$SyntaxError);
+    }
   }
 
-  peg$subclass(SyntaxError, Error);
+  peg$subclass(peg$SyntaxError, Error);
 
-  function parse(input) {
+  function peg$parse(input) {
     var options = arguments.length > 1 ? arguments[1] : {},
+        parser  = this,
 
         peg$FAILED = {},
 
         peg$startRuleFunctions = { start: peg$parsestart },
         peg$startRuleFunction  = peg$parsestart,
 
-        peg$c0 = peg$FAILED,
-        peg$c1 = function(v1, op, v2) { return {'op':op, args: [v1, v2] }; },
-        peg$c2 = function(out) { return out; },
-        peg$c3 = "(",
-        peg$c4 = { type: "literal", value: "(", description: "\"(\"" },
-        peg$c5 = ")",
-        peg$c6 = { type: "literal", value: ")", description: "\")\"" },
-        peg$c7 = function(rolls) { return {'op':'paren_express', args: [rolls]} },
-        peg$c8 = "*",
-        peg$c9 = { type: "literal", value: "*", description: "\"*\"" },
-        peg$c10 = function() { return '*'; },
-        peg$c11 = "/",
-        peg$c12 = { type: "literal", value: "/", description: "\"/\"" },
-        peg$c13 = function() { return '/'; },
-        peg$c14 = function(v1, op, v2) { return {'op':op, args:[v1, v2] }; },
-        peg$c15 = function(d) { return d; },
-        peg$c16 = function(paren) { return paren; },
-        peg$c17 = function(v1, op, v2) { return {'op':op, args:[v1, v2]}; },
-        peg$c18 = function(op) { return op; },
-        peg$c19 = "+",
-        peg$c20 = { type: "literal", value: "+", description: "\"+\"" },
-        peg$c21 = function() { return "+"; },
-        peg$c22 = "-",
-        peg$c23 = { type: "literal", value: "-", description: "\"-\"" },
-        peg$c24 = function() { return "-"; },
-        peg$c25 = function(x, mode, mm) { return {'op':mode, 'args':[x, mm]} },
-        peg$c26 = function(mode, mm) { return {'op':mode, 'args':[{'op':'static', 'value':1}, mm]}; },
-        peg$c27 = function(mm) { return { 'op':'d', 'args':[ {'op':'static', 'value':1}, mm]}; },
-        peg$c28 = function(x) { return x; },
-        peg$c29 = "d",
-        peg$c30 = { type: "literal", value: "d", description: "\"d\"" },
-        peg$c31 = "w",
-        peg$c32 = { type: "literal", value: "w", description: "\"w\"" },
-        peg$c33 = function(mm) { return mm; },
-        peg$c34 = function(max) { return {'op':'random', 'args':[{'op':'static', 'args':[], 'value':1}, max]}; },
-        peg$c35 = "..",
-        peg$c36 = { type: "literal", value: "..", description: "\"..\"" },
-        peg$c37 = function(min, max) { return {'op':'random', 'args':[min, max]}; },
-        peg$c38 = [],
-        peg$c39 = /^[ ]/,
-        peg$c40 = { type: "class", value: "[ ]", description: "[ ]" },
-        peg$c41 = function(i) {
+        peg$c0 = function(v1, op, v2) { return {'op':op, args: [v1, v2] }; },
+        peg$c1 = function(out) { return out; },
+        peg$c2 = "(",
+        peg$c3 = { type: "literal", value: "(", description: "\"(\"" },
+        peg$c4 = ")",
+        peg$c5 = { type: "literal", value: ")", description: "\")\"" },
+        peg$c6 = function(rolls) { return {'op':'paren_express', args: [rolls]} },
+        peg$c7 = "*",
+        peg$c8 = { type: "literal", value: "*", description: "\"*\"" },
+        peg$c9 = function() { return '*'; },
+        peg$c10 = "/",
+        peg$c11 = { type: "literal", value: "/", description: "\"/\"" },
+        peg$c12 = function() { return '/'; },
+        peg$c13 = function(v1, op, v2) { return {'op':op, args:[v1, v2] }; },
+        peg$c14 = function(d) { return d; },
+        peg$c15 = function(paren) { return paren; },
+        peg$c16 = function(v1, op, v2) { return {'op':op, args:[v1, v2]}; },
+        peg$c17 = function(op) { return op; },
+        peg$c18 = "+",
+        peg$c19 = { type: "literal", value: "+", description: "\"+\"" },
+        peg$c20 = function() { return "+"; },
+        peg$c21 = "-",
+        peg$c22 = { type: "literal", value: "-", description: "\"-\"" },
+        peg$c23 = function() { return "-"; },
+        peg$c24 = function(x, mode, mm) { return {'op':mode, 'args':[x, mm]} },
+        peg$c25 = function(mode, mm) { return {'op':mode, 'args':[{'op':'static', 'value':1}, mm]}; },
+        peg$c26 = function(mm) { return { 'op':'d', 'args':[ {'op':'static', 'value':1}, mm]}; },
+        peg$c27 = function(x) { return x; },
+        peg$c28 = "d",
+        peg$c29 = { type: "literal", value: "d", description: "\"d\"" },
+        peg$c30 = "w",
+        peg$c31 = { type: "literal", value: "w", description: "\"w\"" },
+        peg$c32 = function(mm) { return mm; },
+        peg$c33 = function(max) { return {'op':'random', 'args':[{'op':'static', 'args':[], 'value':1}, max]}; },
+        peg$c34 = "..",
+        peg$c35 = { type: "literal", value: "..", description: "\"..\"" },
+        peg$c36 = function(min, max) { return {'op':'random', 'args':[min, max]}; },
+        peg$c37 = /^[ ]/,
+        peg$c38 = { type: "class", value: "[ ]", description: "[ ]" },
+        peg$c39 = function(i) {
         		return {'op': 'static', value: i};
         	},
-        peg$c42 = function(l) {
+        peg$c40 = function(l) {
         		return l;
         	},
-        peg$c43 = function(f, v) {
+        peg$c41 = function(f, v) {
         		return {'op':f, args:[v]};
         	},
-        peg$c44 = function(f, ex) {
+        peg$c42 = function(f, ex) {
             return {'op':f, args:ex.args};
         	},
-        peg$c45 = "f",
-        peg$c46 = { type: "literal", value: "f", description: "\"f\"" },
-        peg$c47 = function() { return 'floor'; },
-        peg$c48 = "r",
-        peg$c49 = { type: "literal", value: "r", description: "\"r\"" },
-        peg$c50 = function() { return 'round'; },
-        peg$c51 = "c",
-        peg$c52 = { type: "literal", value: "c", description: "\"c\"" },
-        peg$c53 = function() { return 'ceil'; },
-        peg$c54 = function(v) { return {'op':'lookup', 'value':v}; },
-        peg$c55 = "[",
-        peg$c56 = { type: "literal", value: "[", description: "\"[\"" },
-        peg$c57 = /^[a-zA-Z 0-9]/,
-        peg$c58 = { type: "class", value: "[a-zA-Z 0-9]", description: "[a-zA-Z 0-9]" },
-        peg$c59 = "]",
-        peg$c60 = { type: "literal", value: "]", description: "\"]\"" },
-        peg$c61 = function(varname) { return varname.join(""); },
-        peg$c62 = { type: "other", description: "integer" },
-        peg$c63 = /^[0-9]/,
-        peg$c64 = { type: "class", value: "[0-9]", description: "[0-9]" },
-        peg$c65 = function(digits) { return parseInt(digits.join(""), 10); },
-        peg$c66 = function(digits) { return parseInt(digits.join(""), 10) * -1; },
+        peg$c43 = "f",
+        peg$c44 = { type: "literal", value: "f", description: "\"f\"" },
+        peg$c45 = function() { return 'floor'; },
+        peg$c46 = "r",
+        peg$c47 = { type: "literal", value: "r", description: "\"r\"" },
+        peg$c48 = function() { return 'round'; },
+        peg$c49 = "c",
+        peg$c50 = { type: "literal", value: "c", description: "\"c\"" },
+        peg$c51 = function() { return 'ceil'; },
+        peg$c52 = function(v) { return {'op':'lookup', 'value':v}; },
+        peg$c53 = "[",
+        peg$c54 = { type: "literal", value: "[", description: "\"[\"" },
+        peg$c55 = /^[a-zA-Z 0-9]/,
+        peg$c56 = { type: "class", value: "[a-zA-Z 0-9]", description: "[a-zA-Z 0-9]" },
+        peg$c57 = "]",
+        peg$c58 = { type: "literal", value: "]", description: "\"]\"" },
+        peg$c59 = function(varname) { return varname.join(""); },
+        peg$c60 = { type: "other", description: "integer" },
+        peg$c61 = /^[0-9]/,
+        peg$c62 = { type: "class", value: "[0-9]", description: "[0-9]" },
+        peg$c63 = function(digits) { return parseInt(digits.join(""), 10); },
+        peg$c64 = function(digits) { return parseInt(digits.join(""), 10) * -1; },
 
         peg$currPos          = 0,
-        peg$reportedPos      = 0,
-        peg$cachedPos        = 0,
-        peg$cachedPosDetails = { line: 1, column: 1, seenCR: false },
+        peg$savedPos         = 0,
+        peg$posDetailsCache  = [{ line: 1, column: 1, seenCR: false }],
         peg$maxFailPos       = 0,
         peg$maxFailExpected  = [],
         peg$silentFails      = 0,
@@ -198,38 +477,51 @@ dice.parse = (function() {
     }
 
     function text() {
-      return input.substring(peg$reportedPos, peg$currPos);
+      return input.substring(peg$savedPos, peg$currPos);
     }
 
-    function offset() {
-      return peg$reportedPos;
-    }
-
-    function line() {
-      return peg$computePosDetails(peg$reportedPos).line;
-    }
-
-    function column() {
-      return peg$computePosDetails(peg$reportedPos).column;
+    function location() {
+      return peg$computeLocation(peg$savedPos, peg$currPos);
     }
 
     function expected(description) {
       throw peg$buildException(
         null,
         [{ type: "other", description: description }],
-        peg$reportedPos
+        input.substring(peg$savedPos, peg$currPos),
+        peg$computeLocation(peg$savedPos, peg$currPos)
       );
     }
 
     function error(message) {
-      throw peg$buildException(message, null, peg$reportedPos);
+      throw peg$buildException(
+        message,
+        null,
+        input.substring(peg$savedPos, peg$currPos),
+        peg$computeLocation(peg$savedPos, peg$currPos)
+      );
     }
 
     function peg$computePosDetails(pos) {
-      function advance(details, startPos, endPos) {
-        var p, ch;
+      var details = peg$posDetailsCache[pos],
+          p, ch;
 
-        for (p = startPos; p < endPos; p++) {
+      if (details) {
+        return details;
+      } else {
+        p = pos - 1;
+        while (!peg$posDetailsCache[p]) {
+          p--;
+        }
+
+        details = peg$posDetailsCache[p];
+        details = {
+          line:   details.line,
+          column: details.column,
+          seenCR: details.seenCR
+        };
+
+        while (p < pos) {
           ch = input.charAt(p);
           if (ch === "\n") {
             if (!details.seenCR) { details.line++; }
@@ -243,19 +535,31 @@ dice.parse = (function() {
             details.column++;
             details.seenCR = false;
           }
-        }
-      }
 
-      if (peg$cachedPos !== pos) {
-        if (peg$cachedPos > pos) {
-          peg$cachedPos = 0;
-          peg$cachedPosDetails = { line: 1, column: 1, seenCR: false };
+          p++;
         }
-        advance(peg$cachedPosDetails, peg$cachedPos, pos);
-        peg$cachedPos = pos;
-      }
 
-      return peg$cachedPosDetails;
+        peg$posDetailsCache[pos] = details;
+        return details;
+      }
+    }
+
+    function peg$computeLocation(startPos, endPos) {
+      var startPosDetails = peg$computePosDetails(startPos),
+          endPosDetails   = peg$computePosDetails(endPos);
+
+      return {
+        start: {
+          offset: startPos,
+          line:   startPosDetails.line,
+          column: startPosDetails.column
+        },
+        end: {
+          offset: endPos,
+          line:   endPosDetails.line,
+          column: endPosDetails.column
+        }
+      };
     }
 
     function peg$fail(expected) {
@@ -269,7 +573,7 @@ dice.parse = (function() {
       peg$maxFailExpected.push(expected);
     }
 
-    function peg$buildException(message, expected, pos) {
+    function peg$buildException(message, expected, found, location) {
       function cleanupExpected(expected) {
         var i = 1;
 
@@ -306,8 +610,8 @@ dice.parse = (function() {
             .replace(/\r/g,   '\\r')
             .replace(/[\x00-\x07\x0B\x0E\x0F]/g, function(ch) { return '\\x0' + hex(ch); })
             .replace(/[\x10-\x1F\x80-\xFF]/g,    function(ch) { return '\\x'  + hex(ch); })
-            .replace(/[\u0180-\u0FFF]/g,         function(ch) { return '\\u0' + hex(ch); })
-            .replace(/[\u1080-\uFFFF]/g,         function(ch) { return '\\u'  + hex(ch); });
+            .replace(/[\u0100-\u0FFF]/g,         function(ch) { return '\\u0' + hex(ch); })
+            .replace(/[\u1000-\uFFFF]/g,         function(ch) { return '\\u'  + hex(ch); });
         }
 
         var expectedDescs = new Array(expected.length),
@@ -328,20 +632,15 @@ dice.parse = (function() {
         return "Expected " + expectedDesc + " but " + foundDesc + " found.";
       }
 
-      var posDetails = peg$computePosDetails(pos),
-          found      = pos < input.length ? input.charAt(pos) : null;
-
       if (expected !== null) {
         cleanupExpected(expected);
       }
 
-      return new SyntaxError(
+      return new peg$SyntaxError(
         message !== null ? message : buildMessage(expected, found),
         expected,
         found,
-        pos,
-        posDetails.line,
-        posDetails.column
+        location
       );
     }
 
@@ -363,35 +662,35 @@ dice.parse = (function() {
         if (s2 !== peg$FAILED) {
           s3 = peg$parseadditionSeq();
           if (s3 !== peg$FAILED) {
-            peg$reportedPos = s0;
-            s1 = peg$c1(s1, s2, s3);
+            peg$savedPos = s0;
+            s1 = peg$c0(s1, s2, s3);
             s0 = s1;
           } else {
             peg$currPos = s0;
-            s0 = peg$c0;
+            s0 = peg$FAILED;
           }
         } else {
           peg$currPos = s0;
-          s0 = peg$c0;
+          s0 = peg$FAILED;
         }
       } else {
         peg$currPos = s0;
-        s0 = peg$c0;
+        s0 = peg$FAILED;
       }
       if (s0 === peg$FAILED) {
         s0 = peg$currPos;
         s1 = peg$parseadditionSeq();
         if (s1 !== peg$FAILED) {
-          peg$reportedPos = s0;
-          s1 = peg$c2(s1);
+          peg$savedPos = s0;
+          s1 = peg$c1(s1);
         }
         s0 = s1;
         if (s0 === peg$FAILED) {
           s0 = peg$currPos;
           s1 = peg$parseparenExpress();
           if (s1 !== peg$FAILED) {
-            peg$reportedPos = s0;
-            s1 = peg$c2(s1);
+            peg$savedPos = s0;
+            s1 = peg$c1(s1);
           }
           s0 = s1;
         }
@@ -405,11 +704,11 @@ dice.parse = (function() {
 
       s0 = peg$currPos;
       if (input.charCodeAt(peg$currPos) === 40) {
-        s1 = peg$c3;
+        s1 = peg$c2;
         peg$currPos++;
       } else {
         s1 = peg$FAILED;
-        if (peg$silentFails === 0) { peg$fail(peg$c4); }
+        if (peg$silentFails === 0) { peg$fail(peg$c3); }
       }
       if (s1 !== peg$FAILED) {
         s2 = peg$parsews();
@@ -419,35 +718,35 @@ dice.parse = (function() {
             s4 = peg$parsews();
             if (s4 !== peg$FAILED) {
               if (input.charCodeAt(peg$currPos) === 41) {
-                s5 = peg$c5;
+                s5 = peg$c4;
                 peg$currPos++;
               } else {
                 s5 = peg$FAILED;
-                if (peg$silentFails === 0) { peg$fail(peg$c6); }
+                if (peg$silentFails === 0) { peg$fail(peg$c5); }
               }
               if (s5 !== peg$FAILED) {
-                peg$reportedPos = s0;
-                s1 = peg$c7(s3);
+                peg$savedPos = s0;
+                s1 = peg$c6(s3);
                 s0 = s1;
               } else {
                 peg$currPos = s0;
-                s0 = peg$c0;
+                s0 = peg$FAILED;
               }
             } else {
               peg$currPos = s0;
-              s0 = peg$c0;
+              s0 = peg$FAILED;
             }
           } else {
             peg$currPos = s0;
-            s0 = peg$c0;
+            s0 = peg$FAILED;
           }
         } else {
           peg$currPos = s0;
-          s0 = peg$c0;
+          s0 = peg$FAILED;
         }
       } else {
         peg$currPos = s0;
-        s0 = peg$c0;
+        s0 = peg$FAILED;
       }
 
       return s0;
@@ -460,58 +759,58 @@ dice.parse = (function() {
       s1 = peg$parsews();
       if (s1 !== peg$FAILED) {
         if (input.charCodeAt(peg$currPos) === 42) {
-          s2 = peg$c8;
+          s2 = peg$c7;
           peg$currPos++;
         } else {
           s2 = peg$FAILED;
-          if (peg$silentFails === 0) { peg$fail(peg$c9); }
+          if (peg$silentFails === 0) { peg$fail(peg$c8); }
         }
         if (s2 !== peg$FAILED) {
           s3 = peg$parsews();
           if (s3 !== peg$FAILED) {
-            peg$reportedPos = s0;
-            s1 = peg$c10();
+            peg$savedPos = s0;
+            s1 = peg$c9();
             s0 = s1;
           } else {
             peg$currPos = s0;
-            s0 = peg$c0;
+            s0 = peg$FAILED;
           }
         } else {
           peg$currPos = s0;
-          s0 = peg$c0;
+          s0 = peg$FAILED;
         }
       } else {
         peg$currPos = s0;
-        s0 = peg$c0;
+        s0 = peg$FAILED;
       }
       if (s0 === peg$FAILED) {
         s0 = peg$currPos;
         s1 = peg$parsews();
         if (s1 !== peg$FAILED) {
           if (input.charCodeAt(peg$currPos) === 47) {
-            s2 = peg$c11;
+            s2 = peg$c10;
             peg$currPos++;
           } else {
             s2 = peg$FAILED;
-            if (peg$silentFails === 0) { peg$fail(peg$c12); }
+            if (peg$silentFails === 0) { peg$fail(peg$c11); }
           }
           if (s2 !== peg$FAILED) {
             s3 = peg$parsews();
             if (s3 !== peg$FAILED) {
-              peg$reportedPos = s0;
-              s1 = peg$c13();
+              peg$savedPos = s0;
+              s1 = peg$c12();
               s0 = s1;
             } else {
               peg$currPos = s0;
-              s0 = peg$c0;
+              s0 = peg$FAILED;
             }
           } else {
             peg$currPos = s0;
-            s0 = peg$c0;
+            s0 = peg$FAILED;
           }
         } else {
           peg$currPos = s0;
-          s0 = peg$c0;
+          s0 = peg$FAILED;
         }
       }
 
@@ -528,20 +827,20 @@ dice.parse = (function() {
         if (s2 !== peg$FAILED) {
           s3 = peg$parsemultiplicationSeq();
           if (s3 !== peg$FAILED) {
-            peg$reportedPos = s0;
-            s1 = peg$c14(s1, s2, s3);
+            peg$savedPos = s0;
+            s1 = peg$c13(s1, s2, s3);
             s0 = s1;
           } else {
             peg$currPos = s0;
-            s0 = peg$c0;
+            s0 = peg$FAILED;
           }
         } else {
           peg$currPos = s0;
-          s0 = peg$c0;
+          s0 = peg$FAILED;
         }
       } else {
         peg$currPos = s0;
-        s0 = peg$c0;
+        s0 = peg$FAILED;
       }
       if (s0 === peg$FAILED) {
         s0 = peg$currPos;
@@ -551,35 +850,35 @@ dice.parse = (function() {
           if (s2 !== peg$FAILED) {
             s3 = peg$parsemultiplicationSeq();
             if (s3 !== peg$FAILED) {
-              peg$reportedPos = s0;
-              s1 = peg$c14(s1, s2, s3);
+              peg$savedPos = s0;
+              s1 = peg$c13(s1, s2, s3);
               s0 = s1;
             } else {
               peg$currPos = s0;
-              s0 = peg$c0;
+              s0 = peg$FAILED;
             }
           } else {
             peg$currPos = s0;
-            s0 = peg$c0;
+            s0 = peg$FAILED;
           }
         } else {
           peg$currPos = s0;
-          s0 = peg$c0;
+          s0 = peg$FAILED;
         }
         if (s0 === peg$FAILED) {
           s0 = peg$currPos;
           s1 = peg$parsediceroll();
           if (s1 !== peg$FAILED) {
-            peg$reportedPos = s0;
-            s1 = peg$c15(s1);
+            peg$savedPos = s0;
+            s1 = peg$c14(s1);
           }
           s0 = s1;
           if (s0 === peg$FAILED) {
             s0 = peg$currPos;
             s1 = peg$parseparenExpress();
             if (s1 !== peg$FAILED) {
-              peg$reportedPos = s0;
-              s1 = peg$c16(s1);
+              peg$savedPos = s0;
+              s1 = peg$c15(s1);
             }
             s0 = s1;
           }
@@ -599,35 +898,35 @@ dice.parse = (function() {
         if (s2 !== peg$FAILED) {
           s3 = peg$parseadditionSeq();
           if (s3 !== peg$FAILED) {
-            peg$reportedPos = s0;
-            s1 = peg$c17(s1, s2, s3);
+            peg$savedPos = s0;
+            s1 = peg$c16(s1, s2, s3);
             s0 = s1;
           } else {
             peg$currPos = s0;
-            s0 = peg$c0;
+            s0 = peg$FAILED;
           }
         } else {
           peg$currPos = s0;
-          s0 = peg$c0;
+          s0 = peg$FAILED;
         }
       } else {
         peg$currPos = s0;
-        s0 = peg$c0;
+        s0 = peg$FAILED;
       }
       if (s0 === peg$FAILED) {
         s0 = peg$currPos;
         s1 = peg$parsemultiplicationSeq();
         if (s1 !== peg$FAILED) {
-          peg$reportedPos = s0;
-          s1 = peg$c18(s1);
+          peg$savedPos = s0;
+          s1 = peg$c17(s1);
         }
         s0 = s1;
         if (s0 === peg$FAILED) {
           s0 = peg$currPos;
           s1 = peg$parseparenExpress();
           if (s1 !== peg$FAILED) {
-            peg$reportedPos = s0;
-            s1 = peg$c18(s1);
+            peg$savedPos = s0;
+            s1 = peg$c17(s1);
           }
           s0 = s1;
         }
@@ -643,58 +942,58 @@ dice.parse = (function() {
       s1 = peg$parsews();
       if (s1 !== peg$FAILED) {
         if (input.charCodeAt(peg$currPos) === 43) {
-          s2 = peg$c19;
+          s2 = peg$c18;
           peg$currPos++;
         } else {
           s2 = peg$FAILED;
-          if (peg$silentFails === 0) { peg$fail(peg$c20); }
+          if (peg$silentFails === 0) { peg$fail(peg$c19); }
         }
         if (s2 !== peg$FAILED) {
           s3 = peg$parsews();
           if (s3 !== peg$FAILED) {
-            peg$reportedPos = s0;
-            s1 = peg$c21();
+            peg$savedPos = s0;
+            s1 = peg$c20();
             s0 = s1;
           } else {
             peg$currPos = s0;
-            s0 = peg$c0;
+            s0 = peg$FAILED;
           }
         } else {
           peg$currPos = s0;
-          s0 = peg$c0;
+          s0 = peg$FAILED;
         }
       } else {
         peg$currPos = s0;
-        s0 = peg$c0;
+        s0 = peg$FAILED;
       }
       if (s0 === peg$FAILED) {
         s0 = peg$currPos;
         s1 = peg$parsews();
         if (s1 !== peg$FAILED) {
           if (input.charCodeAt(peg$currPos) === 45) {
-            s2 = peg$c22;
+            s2 = peg$c21;
             peg$currPos++;
           } else {
             s2 = peg$FAILED;
-            if (peg$silentFails === 0) { peg$fail(peg$c23); }
+            if (peg$silentFails === 0) { peg$fail(peg$c22); }
           }
           if (s2 !== peg$FAILED) {
             s3 = peg$parsews();
             if (s3 !== peg$FAILED) {
-              peg$reportedPos = s0;
-              s1 = peg$c24();
+              peg$savedPos = s0;
+              s1 = peg$c23();
               s0 = s1;
             } else {
               peg$currPos = s0;
-              s0 = peg$c0;
+              s0 = peg$FAILED;
             }
           } else {
             peg$currPos = s0;
-            s0 = peg$c0;
+            s0 = peg$FAILED;
           }
         } else {
           peg$currPos = s0;
-          s0 = peg$c0;
+          s0 = peg$FAILED;
         }
       }
 
@@ -711,20 +1010,20 @@ dice.parse = (function() {
         if (s2 !== peg$FAILED) {
           s3 = peg$parsemaybe_minmax();
           if (s3 !== peg$FAILED) {
-            peg$reportedPos = s0;
-            s1 = peg$c25(s1, s2, s3);
+            peg$savedPos = s0;
+            s1 = peg$c24(s1, s2, s3);
             s0 = s1;
           } else {
             peg$currPos = s0;
-            s0 = peg$c0;
+            s0 = peg$FAILED;
           }
         } else {
           peg$currPos = s0;
-          s0 = peg$c0;
+          s0 = peg$FAILED;
         }
       } else {
         peg$currPos = s0;
-        s0 = peg$c0;
+        s0 = peg$FAILED;
       }
       if (s0 === peg$FAILED) {
         s0 = peg$currPos;
@@ -732,31 +1031,31 @@ dice.parse = (function() {
         if (s1 !== peg$FAILED) {
           s2 = peg$parsemaybe_minmax();
           if (s2 !== peg$FAILED) {
-            peg$reportedPos = s0;
-            s1 = peg$c26(s1, s2);
+            peg$savedPos = s0;
+            s1 = peg$c25(s1, s2);
             s0 = s1;
           } else {
             peg$currPos = s0;
-            s0 = peg$c0;
+            s0 = peg$FAILED;
           }
         } else {
           peg$currPos = s0;
-          s0 = peg$c0;
+          s0 = peg$FAILED;
         }
         if (s0 === peg$FAILED) {
           s0 = peg$currPos;
           s1 = peg$parseminmax();
           if (s1 !== peg$FAILED) {
-            peg$reportedPos = s0;
-            s1 = peg$c27(s1);
+            peg$savedPos = s0;
+            s1 = peg$c26(s1);
           }
           s0 = s1;
           if (s0 === peg$FAILED) {
             s0 = peg$currPos;
             s1 = peg$parseintval();
             if (s1 !== peg$FAILED) {
-              peg$reportedPos = s0;
-              s1 = peg$c28(s1);
+              peg$savedPos = s0;
+              s1 = peg$c27(s1);
             }
             s0 = s1;
           }
@@ -770,19 +1069,19 @@ dice.parse = (function() {
       var s0;
 
       if (input.charCodeAt(peg$currPos) === 100) {
-        s0 = peg$c29;
+        s0 = peg$c28;
         peg$currPos++;
       } else {
         s0 = peg$FAILED;
-        if (peg$silentFails === 0) { peg$fail(peg$c30); }
+        if (peg$silentFails === 0) { peg$fail(peg$c29); }
       }
       if (s0 === peg$FAILED) {
         if (input.charCodeAt(peg$currPos) === 119) {
-          s0 = peg$c31;
+          s0 = peg$c30;
           peg$currPos++;
         } else {
           s0 = peg$FAILED;
-          if (peg$silentFails === 0) { peg$fail(peg$c32); }
+          if (peg$silentFails === 0) { peg$fail(peg$c31); }
         }
       }
 
@@ -795,16 +1094,16 @@ dice.parse = (function() {
       s0 = peg$currPos;
       s1 = peg$parseminmax();
       if (s1 !== peg$FAILED) {
-        peg$reportedPos = s0;
-        s1 = peg$c33(s1);
+        peg$savedPos = s0;
+        s1 = peg$c32(s1);
       }
       s0 = s1;
       if (s0 === peg$FAILED) {
         s0 = peg$currPos;
         s1 = peg$parseintval();
         if (s1 !== peg$FAILED) {
-          peg$reportedPos = s0;
-          s1 = peg$c34(s1);
+          peg$savedPos = s0;
+          s1 = peg$c33(s1);
         }
         s0 = s1;
       }
@@ -818,30 +1117,30 @@ dice.parse = (function() {
       s0 = peg$currPos;
       s1 = peg$parseintval();
       if (s1 !== peg$FAILED) {
-        if (input.substr(peg$currPos, 2) === peg$c35) {
-          s2 = peg$c35;
+        if (input.substr(peg$currPos, 2) === peg$c34) {
+          s2 = peg$c34;
           peg$currPos += 2;
         } else {
           s2 = peg$FAILED;
-          if (peg$silentFails === 0) { peg$fail(peg$c36); }
+          if (peg$silentFails === 0) { peg$fail(peg$c35); }
         }
         if (s2 !== peg$FAILED) {
           s3 = peg$parseintval();
           if (s3 !== peg$FAILED) {
-            peg$reportedPos = s0;
-            s1 = peg$c37(s1, s3);
+            peg$savedPos = s0;
+            s1 = peg$c36(s1, s3);
             s0 = s1;
           } else {
             peg$currPos = s0;
-            s0 = peg$c0;
+            s0 = peg$FAILED;
           }
         } else {
           peg$currPos = s0;
-          s0 = peg$c0;
+          s0 = peg$FAILED;
         }
       } else {
         peg$currPos = s0;
-        s0 = peg$c0;
+        s0 = peg$FAILED;
       }
 
       return s0;
@@ -851,21 +1150,21 @@ dice.parse = (function() {
       var s0, s1;
 
       s0 = [];
-      if (peg$c39.test(input.charAt(peg$currPos))) {
+      if (peg$c37.test(input.charAt(peg$currPos))) {
         s1 = input.charAt(peg$currPos);
         peg$currPos++;
       } else {
         s1 = peg$FAILED;
-        if (peg$silentFails === 0) { peg$fail(peg$c40); }
+        if (peg$silentFails === 0) { peg$fail(peg$c38); }
       }
       while (s1 !== peg$FAILED) {
         s0.push(s1);
-        if (peg$c39.test(input.charAt(peg$currPos))) {
+        if (peg$c37.test(input.charAt(peg$currPos))) {
           s1 = input.charAt(peg$currPos);
           peg$currPos++;
         } else {
           s1 = peg$FAILED;
-          if (peg$silentFails === 0) { peg$fail(peg$c40); }
+          if (peg$silentFails === 0) { peg$fail(peg$c38); }
         }
       }
 
@@ -878,16 +1177,16 @@ dice.parse = (function() {
       s0 = peg$currPos;
       s1 = peg$parseinteger();
       if (s1 !== peg$FAILED) {
-        peg$reportedPos = s0;
-        s1 = peg$c41(s1);
+        peg$savedPos = s0;
+        s1 = peg$c39(s1);
       }
       s0 = s1;
       if (s0 === peg$FAILED) {
         s0 = peg$currPos;
         s1 = peg$parselookup();
         if (s1 !== peg$FAILED) {
-          peg$reportedPos = s0;
-          s1 = peg$c42(s1);
+          peg$savedPos = s0;
+          s1 = peg$c40(s1);
         }
         s0 = s1;
         if (s0 === peg$FAILED) {
@@ -896,16 +1195,16 @@ dice.parse = (function() {
           if (s1 !== peg$FAILED) {
             s2 = peg$parselookup();
             if (s2 !== peg$FAILED) {
-              peg$reportedPos = s0;
-              s1 = peg$c43(s1, s2);
+              peg$savedPos = s0;
+              s1 = peg$c41(s1, s2);
               s0 = s1;
             } else {
               peg$currPos = s0;
-              s0 = peg$c0;
+              s0 = peg$FAILED;
             }
           } else {
             peg$currPos = s0;
-            s0 = peg$c0;
+            s0 = peg$FAILED;
           }
           if (s0 === peg$FAILED) {
             s0 = peg$currPos;
@@ -913,16 +1212,16 @@ dice.parse = (function() {
             if (s1 !== peg$FAILED) {
               s2 = peg$parseparenExpress();
               if (s2 !== peg$FAILED) {
-                peg$reportedPos = s0;
-                s1 = peg$c44(s1, s2);
+                peg$savedPos = s0;
+                s1 = peg$c42(s1, s2);
                 s0 = s1;
               } else {
                 peg$currPos = s0;
-                s0 = peg$c0;
+                s0 = peg$FAILED;
               }
             } else {
               peg$currPos = s0;
-              s0 = peg$c0;
+              s0 = peg$FAILED;
             }
           }
         }
@@ -936,43 +1235,43 @@ dice.parse = (function() {
 
       s0 = peg$currPos;
       if (input.charCodeAt(peg$currPos) === 102) {
-        s1 = peg$c45;
+        s1 = peg$c43;
         peg$currPos++;
       } else {
         s1 = peg$FAILED;
-        if (peg$silentFails === 0) { peg$fail(peg$c46); }
+        if (peg$silentFails === 0) { peg$fail(peg$c44); }
       }
       if (s1 !== peg$FAILED) {
-        peg$reportedPos = s0;
-        s1 = peg$c47();
+        peg$savedPos = s0;
+        s1 = peg$c45();
       }
       s0 = s1;
       if (s0 === peg$FAILED) {
         s0 = peg$currPos;
         if (input.charCodeAt(peg$currPos) === 114) {
-          s1 = peg$c48;
+          s1 = peg$c46;
           peg$currPos++;
         } else {
           s1 = peg$FAILED;
-          if (peg$silentFails === 0) { peg$fail(peg$c49); }
+          if (peg$silentFails === 0) { peg$fail(peg$c47); }
         }
         if (s1 !== peg$FAILED) {
-          peg$reportedPos = s0;
-          s1 = peg$c50();
+          peg$savedPos = s0;
+          s1 = peg$c48();
         }
         s0 = s1;
         if (s0 === peg$FAILED) {
           s0 = peg$currPos;
           if (input.charCodeAt(peg$currPos) === 99) {
-            s1 = peg$c51;
+            s1 = peg$c49;
             peg$currPos++;
           } else {
             s1 = peg$FAILED;
-            if (peg$silentFails === 0) { peg$fail(peg$c52); }
+            if (peg$silentFails === 0) { peg$fail(peg$c50); }
           }
           if (s1 !== peg$FAILED) {
-            peg$reportedPos = s0;
-            s1 = peg$c53();
+            peg$savedPos = s0;
+            s1 = peg$c51();
           }
           s0 = s1;
         }
@@ -987,8 +1286,8 @@ dice.parse = (function() {
       s0 = peg$currPos;
       s1 = peg$parsevariable();
       if (s1 !== peg$FAILED) {
-        peg$reportedPos = s0;
-        s1 = peg$c54(s1);
+        peg$savedPos = s0;
+        s1 = peg$c52(s1);
       }
       s0 = s1;
 
@@ -1000,58 +1299,58 @@ dice.parse = (function() {
 
       s0 = peg$currPos;
       if (input.charCodeAt(peg$currPos) === 91) {
-        s1 = peg$c55;
+        s1 = peg$c53;
         peg$currPos++;
       } else {
         s1 = peg$FAILED;
-        if (peg$silentFails === 0) { peg$fail(peg$c56); }
+        if (peg$silentFails === 0) { peg$fail(peg$c54); }
       }
       if (s1 !== peg$FAILED) {
         s2 = [];
-        if (peg$c57.test(input.charAt(peg$currPos))) {
+        if (peg$c55.test(input.charAt(peg$currPos))) {
           s3 = input.charAt(peg$currPos);
           peg$currPos++;
         } else {
           s3 = peg$FAILED;
-          if (peg$silentFails === 0) { peg$fail(peg$c58); }
+          if (peg$silentFails === 0) { peg$fail(peg$c56); }
         }
         if (s3 !== peg$FAILED) {
           while (s3 !== peg$FAILED) {
             s2.push(s3);
-            if (peg$c57.test(input.charAt(peg$currPos))) {
+            if (peg$c55.test(input.charAt(peg$currPos))) {
               s3 = input.charAt(peg$currPos);
               peg$currPos++;
             } else {
               s3 = peg$FAILED;
-              if (peg$silentFails === 0) { peg$fail(peg$c58); }
+              if (peg$silentFails === 0) { peg$fail(peg$c56); }
             }
           }
         } else {
-          s2 = peg$c0;
+          s2 = peg$FAILED;
         }
         if (s2 !== peg$FAILED) {
           if (input.charCodeAt(peg$currPos) === 93) {
-            s3 = peg$c59;
+            s3 = peg$c57;
             peg$currPos++;
           } else {
             s3 = peg$FAILED;
-            if (peg$silentFails === 0) { peg$fail(peg$c60); }
+            if (peg$silentFails === 0) { peg$fail(peg$c58); }
           }
           if (s3 !== peg$FAILED) {
-            peg$reportedPos = s0;
-            s1 = peg$c61(s2);
+            peg$savedPos = s0;
+            s1 = peg$c59(s2);
             s0 = s1;
           } else {
             peg$currPos = s0;
-            s0 = peg$c0;
+            s0 = peg$FAILED;
           }
         } else {
           peg$currPos = s0;
-          s0 = peg$c0;
+          s0 = peg$FAILED;
         }
       } else {
         peg$currPos = s0;
-        s0 = peg$c0;
+        s0 = peg$FAILED;
       }
 
       return s0;
@@ -1063,81 +1362,81 @@ dice.parse = (function() {
       peg$silentFails++;
       s0 = peg$currPos;
       s1 = [];
-      if (peg$c63.test(input.charAt(peg$currPos))) {
+      if (peg$c61.test(input.charAt(peg$currPos))) {
         s2 = input.charAt(peg$currPos);
         peg$currPos++;
       } else {
         s2 = peg$FAILED;
-        if (peg$silentFails === 0) { peg$fail(peg$c64); }
+        if (peg$silentFails === 0) { peg$fail(peg$c62); }
       }
       if (s2 !== peg$FAILED) {
         while (s2 !== peg$FAILED) {
           s1.push(s2);
-          if (peg$c63.test(input.charAt(peg$currPos))) {
+          if (peg$c61.test(input.charAt(peg$currPos))) {
             s2 = input.charAt(peg$currPos);
             peg$currPos++;
           } else {
             s2 = peg$FAILED;
-            if (peg$silentFails === 0) { peg$fail(peg$c64); }
+            if (peg$silentFails === 0) { peg$fail(peg$c62); }
           }
         }
       } else {
-        s1 = peg$c0;
+        s1 = peg$FAILED;
       }
       if (s1 !== peg$FAILED) {
-        peg$reportedPos = s0;
-        s1 = peg$c65(s1);
+        peg$savedPos = s0;
+        s1 = peg$c63(s1);
       }
       s0 = s1;
       if (s0 === peg$FAILED) {
         s0 = peg$currPos;
         if (input.charCodeAt(peg$currPos) === 45) {
-          s1 = peg$c22;
+          s1 = peg$c21;
           peg$currPos++;
         } else {
           s1 = peg$FAILED;
-          if (peg$silentFails === 0) { peg$fail(peg$c23); }
+          if (peg$silentFails === 0) { peg$fail(peg$c22); }
         }
         if (s1 !== peg$FAILED) {
           s2 = [];
-          if (peg$c63.test(input.charAt(peg$currPos))) {
+          if (peg$c61.test(input.charAt(peg$currPos))) {
             s3 = input.charAt(peg$currPos);
             peg$currPos++;
           } else {
             s3 = peg$FAILED;
-            if (peg$silentFails === 0) { peg$fail(peg$c64); }
+            if (peg$silentFails === 0) { peg$fail(peg$c62); }
           }
           if (s3 !== peg$FAILED) {
             while (s3 !== peg$FAILED) {
               s2.push(s3);
-              if (peg$c63.test(input.charAt(peg$currPos))) {
+              if (peg$c61.test(input.charAt(peg$currPos))) {
                 s3 = input.charAt(peg$currPos);
                 peg$currPos++;
               } else {
                 s3 = peg$FAILED;
-                if (peg$silentFails === 0) { peg$fail(peg$c64); }
+                if (peg$silentFails === 0) { peg$fail(peg$c62); }
               }
             }
           } else {
-            s2 = peg$c0;
+            s2 = peg$FAILED;
           }
           if (s2 !== peg$FAILED) {
-            peg$reportedPos = s0;
-            s1 = peg$c66(s2);
+            peg$savedPos = s0;
+            s1 = peg$c64(s2);
             s0 = s1;
           } else {
             peg$currPos = s0;
-            s0 = peg$c0;
+            s0 = peg$FAILED;
           }
         } else {
           peg$currPos = s0;
-          s0 = peg$c0;
+          s0 = peg$FAILED;
         }
       }
       peg$silentFails--;
       if (s0 === peg$FAILED) {
         s1 = peg$FAILED;
-        if (peg$silentFails === 0) { peg$fail(peg$c62); }
+        if (peg$silentFails === 0) { peg$fail(peg$c60); }
       }
 
       return s0;
@@ -1152,232 +1451,22 @@ dice.parse = (function() {
         peg$fail({ type: "end", description: "end of input" });
       }
 
-      throw peg$buildException(null, peg$maxFailExpected, peg$maxFailPos);
+      throw peg$buildException(
+        null,
+        peg$maxFailExpected,
+        peg$maxFailPos < input.length ? input.charAt(peg$maxFailPos) : null,
+        peg$maxFailPos < input.length
+          ? peg$computeLocation(peg$maxFailPos, peg$maxFailPos + 1)
+          : peg$computeLocation(peg$maxFailPos, peg$maxFailPos)
+      );
     }
   }
 
   return {
-    SyntaxError: SyntaxError,
-    parse:       parse
+    SyntaxError: peg$SyntaxError,
+    parse:       peg$parse
   };
 })();
-dice.eval = (function(){
 
-	function makeSeq(endIndex){
-		var seq = [];
-		seq[endIndex] = true;
-		for(var i = 0; i < seq.length; i++){
-			seq[i] = true;
-		}
-		return seq;
-	};
-
-	var ops = {
-
-		'static': function(){
-			var outValue = this.value;
-			return function(){
-				return outValue;
-			};
-		},
-
-		'lookup': function(){
-			var variableName = this.value;
-			return function(scope){
-				return scope[variableName];
-			}
-		},
-
-		'floor': function(value){
-			return function(scope){
-				var floorable = value(scope);
-				var tots = new Number(Math.floor(floorable));
-				tots.op = 'floor';
-				tots.expression = floorable;
-				return tots;
-			}
-		},
-
-		'ceil': function(value){
-			return function(scope){
-				var ceilable = value(scope);
-				var tots = new Number(Math.ceil(ceilable));
-				tots.op = 'ceil';
-				tots.expression = ceilable;
-				return tots;
-			}
-		},
-
-		'round': function(value){
-			return function(scope){
-				var roundable = value(scope);
-				var tots = new Number(Math.round(roundable));
-				tots.op = 'round';
-				tots.expression = roundable;
-				return tots;
-			}
-		},
-
-		'd': function(numRolls, minMax){
-			return function(scope){
-				var x = numRolls(scope);
-				var seq = makeSeq(x - 1);
-				var outMin, outMax;
-				var rolled = seq.map(function(){
-					var rolledRet = minMax(scope);
-					outMin = rolledRet.min;
-					outMax = rolledRet.max;
-					return rolledRet;
-				});
-				var out = rolled.reduce(function(sum, val){
-					return sum + val;
-				}, 0);
-				out = new Number(out);
-				out.rolls = rolled;
-				out.min = outMin;
-				out.max = outMax;
-				out.x = x;
-				out.mode = 'd';
-				return out;
-			};
-		},
-
-		'w': function(numRolls, minMax){
-			return function(scope){
-				var x = numRolls(scope);
-				var seq = makeSeq(x - 1);
-				var outMin, outMax;
-				var rolled = seq.map(function(){
-					var lastRolled = minMax(scope);
-					var wildrolled = 0;
-					outMin = minMax.min;
-					outMax = minMax.max;
-					if(minMax.min === minMax.max){
-						return lastRolled;
-					}
-					while(lastRolled === minMax.max){
-						wildrolled += lastRolled;
-						lastRolled = mimMax(scope);
-					}
-					return wildrolled;
-				});
-				var out = rolled.reduce(function(sum, val){
-					return sum + val;
-				}, 0);
-				out = new Number(out);
-				out.rolls = rolled;
-				out.min = outMin;
-				out.max = outMax;
-				out.x = x;
-				out.mode = 'w';
-				return out;
-			};
-		},
-
-		'random': function(minFun, maxFun){
-			return function(scope){
-				var rawRandom = Math.random();
-				var max = maxFun(scope);
-				var min = minFun(scope);
-				var diff = max - min;
-				var rawRandom = diff * rawRandom;
-				var rndNumber = Math.round(rawRandom + min);
-				rndNumber = new Number(rndNumber);
-				rndNumber.min = min;
-				rndNumber.max = max;
-				return rndNumber;
-			};
-		},
-
-		'+': function(v1, v2){
-			return function(scope){
-				var rightSide = v1(scope);
-				var leftSide = v2(scope);
-				var sum = rightSide + leftSide;
-				sum = new Number(sum);
-				sum.op = '+';
-				sum.rightSide = rightSide;
-				sum.leftSide = leftSide;
-				return sum;
-			};
-		},
-
-		'-': function(v1, v2){
-			return function(scope){
-				var rightSide = v1(scope);
-				var leftSide = v2(scope);
-				var sum = rightSide - leftSide;
-				sum = new Number(sum);
-				sum.op = '-';
-				sum.rightSide = rightSide;
-				sum.leftSide = leftSide;
-				return sum;
-			};
-		},
-
-		'*': function(v1, v2){
-			return function(scope){
-				var rightSide = v1(scope);
-				var leftSide = v2(scope);
-				var tots = rightSide * leftSide;
-				tots = new Number(tots);
-				tots.op = '*';
-				tots.rightSide = rightSide;
-				tots.leftSide = leftSide;
-				return tots;
-			};
-		},
-
-		'/': function(v1, v2){
-			return function(scope){
-				var rightSide = v1(scope);
-				var leftSide = v2(scope);
-				var tots = rightSide / leftSide;
-				tots = new Number(tots);
-				tots.op = '/';
-				tots.rightSide = rightSide;
-				tots.leftSide = leftSide;
-				return tots;
-			};
-		},
-
-		'paren_express': function(op){
-			return function(scope){
-				var tots = op(scope);
-				outtots = new Number(tots);
-				outtots.op = 'paren_express';
-				outtots.expression = tots;
-				return outtots;
-			};
-		}
-
-	};
-
-	function resolve_ops(args){
-		args = args || [];
-		return args.map(resolve_op);
-	};
-
-	function resolve_op(opObj){
-		var subArgs = resolve_ops(opObj.args);
-		return ops[opObj.op].apply(opObj, subArgs);
-	};
-
-	var result = {
-
-		eval: function(parsed, scope){
-			scope = scope || {};
-			var ops = resolve_op(parsed)
-			return ops(scope);
-
-			/*var acc = {sum: 0, mode: "+", rolls: [], 'scope':scope}
-			var reduced = parsed.reduce(reduceThemBones, acc);
-			return {sum: reduced.sum, rolls: reduced.rolls};*/
-		},
-
-		'ops':ops
-	}
-
-	return result;
-
-})();
+},{}]},{},[2])(2)
+});
