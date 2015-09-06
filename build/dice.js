@@ -1,14 +1,60 @@
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.dice = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-var dice = {};
-var parse = require('./parser.js');
-var eval = require('./evaluate.js');
-dice.parse = parse.parse;
-dice.eval = eval.eval;
-dice.version = "0.8.0";
+module.exports={
+  "name": "dice.js",
+  "version": "0.8.0",
+  "description": "A parser and evaluator for a useful rpg dice syntax.",
+  "main": "src/dice.js",
+  "directories": {
+    "test": "tests"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "karma": "~0.10.8",
+    "karma-chrome-launcher": "~0.1.1",
+    "karma-coffee-preprocessor": "~0.1.1",
+    "karma-firefox-launcher": "~0.1.2",
+    "karma-html2js-preprocessor": "~0.1.0",
+    "karma-jasmine": "~0.1.5",
+    "karma-phantomjs-launcher": "~0.1.1",
+    "karma-requirejs": "~0.2.0",
+    "karma-script-launcher": "~0.1.0",
+    "requirejs": "~2.1.9",
+    "pegjs": "~0.9.0",
+    "jasmine-node": "~1.14.5",
+    "browserify": "~11.0.1"
+  },
+  "scripts": {
+    "test": "make test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lordnull/dice.js.git"
+  },
+  "keywords": [
+    "rpg",
+    "dice",
+    "parser",
+    "roll",
+    "peg"
+  ],
+  "author": "Micah Warren (Lord Null)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/lordnull/dice.js/issues"
+  },
+  "homepage": "https://github.com/lordnull/dice.js"
+}
+
+},{}],2:[function(require,module,exports){
+var dice = {
+	parse: require('./parser').parse,
+	eval: require('./evaluate').eval,
+	version: require('../package').version
+};
 
 function roll(str, scope){
-	var parsed = parse.parse(str);
-	var evaled = eval.eval(parsed, scope);
+	var parsed = dice.parse(str);
+	var evaled = dice.eval(parsed, scope);
 	return evaled;
 };
 
@@ -84,7 +130,7 @@ for(k in dice){
 
 return dice;
 
-},{"./evaluate.js":2,"./parser.js":3}],2:[function(require,module,exports){
+},{"../package":1,"./evaluate":3,"./parser":4}],3:[function(require,module,exports){
 
 function makeSeq(endIndex){
 	var seq = [];
@@ -300,7 +346,7 @@ exports.eval = function(parsed, scope){
 exports.ops = ops;
 
 
-},{}],3:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 module.exports = (function() {
   "use strict";
 
@@ -1422,5 +1468,5 @@ module.exports = (function() {
   };
 })();
 
-},{}]},{},[1])(1)
+},{}]},{},[2])(2)
 });

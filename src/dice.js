@@ -1,13 +1,12 @@
-var dice = {};
-var parse = require('./parser.js');
-var eval = require('./evaluate.js');
-dice.parse = parse.parse;
-dice.eval = eval.eval;
-dice.version = "0.8.0";
+var dice = {
+	parse: require('./parser').parse,
+	eval: require('./evaluate').eval,
+	version: require('../package').version
+};
 
 function roll(str, scope){
-	var parsed = parse.parse(str);
-	var evaled = eval.eval(parsed, scope);
+	var parsed = dice.parse(str);
+	var evaled = dice.eval(parsed, scope);
 	return evaled;
 };
 
