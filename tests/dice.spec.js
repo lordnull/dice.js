@@ -21,7 +21,8 @@ describe("Dice", function(){
 		"( 2d6 * 7)", "1d6 + (3d6 *7 )", "( 1 + 2) * 3",
 		"1d20 * (1d6 * ( 3 + [variable] ) )", "r([variable] + 2)d6",
 		"f(5 /3)", "( c([variable] / 7) + 3) * 2",
-		"3 + r(3/ [variable])"];
+		"3 + r(3/ [variable])", "1d[variable with space]",
+		"[variable.with.dot]d20", "3d6 + [varible with-mixed.odd_characters]"];
 
 		strings.map(function(toParse){
 			it("parses " + toParse, function(){
