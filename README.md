@@ -171,6 +171,20 @@ Or if you need to roll half your level in d6's:
 
     c([Level] / 2)d6
 
+For more advanced usage, scopes can be nested.
+
+    var scope = {
+        'takes.priority': 3,
+        'takes':{
+            'priority': 5
+        },
+        'nested'{
+            'value': 7
+        }
+    };
+    var result = dice.roll("[takes.priority] + [nested.value]", scope);
+    result == 10; // because we look for an exact match of property name first
+
 Contributing
 ============
 
