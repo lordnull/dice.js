@@ -153,7 +153,22 @@ var ops = {
 	'lookup': function(){
 		var variableName = this.value;
 		return function(scope){
-			return scope[variableName];
+			var undef;
+			var out = scope[variableName];
+			if(out != undef){
+				return out;
+			}
+			var split = variableName.split('.');
+			if(variableName == split){
+				return out;
+			}
+			reduceRes = split.reduce(function(acc, elem){
+				if(acc == undef){
+					return;
+				}
+				return acc[elem];
+			}, scope);
+			return reduceRes;
 		}
 	},
 

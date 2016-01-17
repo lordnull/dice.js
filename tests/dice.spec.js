@@ -216,6 +216,35 @@ describe("Dice", function(){
 			expect(results.mean).toEqual(1);
 		});
 
+		it("can lookup weirdly named properties", function(){
+			var propName = "ಠ_ಠ and-more_unusual.characters#$!^*&";
+			var scope = {};
+			scope[propName] = 53;
+			var results = dice.roll("[" + propName + "]", scope);
+			expect(results).toEqual(53);
+		});
+
+		it("can lookup nested scope variables", function(){
+			var scope = {
+				upper: {
+					nested: 7
+				}
+			};
+			var results = dice.roll("[upper.nested]", scope);
+			expect(results).toEqual(7);
+		});
+
+		it("prefers full property name over nested scope", function(){
+			var scope = {
+				"upper.nested": 5,
+				upper: {
+					nested: 93
+				}
+			};
+			var results = dice.roll("[upper.nested]", scope);
+			expect(results).toEqual(5);
+		});
+
 	});
 });
 
