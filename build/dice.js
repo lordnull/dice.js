@@ -161,7 +161,6 @@ function determine_min_max_possible(opObject, scope){
 	if(opObject.op == 'paren_express'){
 		return determine_min_max_possible(opObject.args[0], scope);
 	}
-	throw('invalid operation, cannot min/max it', opObject.op);
 }
 
 function stringify_expression(evaled_op){
