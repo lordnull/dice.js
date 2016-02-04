@@ -246,5 +246,44 @@ describe("Dice", function(){
 		});
 
 	});
+
+	describe("simple statisitcs tests", function(){
+
+		var name_base = "provides min_possible and max_possible for ";
+		var scope = {
+			"v1": 1,
+			"v10": 10,
+			"v2": 2
+		};
+		var inputs = [
+			{str: "d20", min: 1, max: 20},
+			{str: "[v1]d20", min: 1, max: 20},
+			{str: "3d6", min: 3, max: 18},
+			{str: "2d6 + 1d20", min: 3, max: 32},
+			{str: "1d4..10", min: 4, max: 10},
+			{str: "2d6 + 7", min: 9, max: 19},
+			{str: "2d[v2]..6 + [v1]", min: 5, max: 13},
+			{str: "2d6 * 3", min: 6, max: 36},
+			// max is dirived by taking highest possible numerator / lowest possiblbe denominator 
+			// while min is smallest possible numberator / highest possible denominator
+			{str: "3d6 / 2d[v10]", min: 0.15, max: 9},
+			// 2d6 * 3 + 1 / 2d6 + 1
+			// 6..36 + (1/2..1/12) + 1
+			{str: "[v2]d6 * 3 + [v1] / f(5 / 2)d6 + 1", min: 7 + (1/12), max: 37.5},
+			{str: "f(2d10)w10", min: 2, max: 200},
+			{str: "3 + r(7 / 2)d10", min: 7, max: 43},
+			{str: "3dc(3 / 2)..7", min: 6, max: 21}
+		];
+		inputs.map(function(opts){
+			it(name_base + opts.str, function(){
+				var stats = dice.statistics(opts.str, scope, 1);
+				expect(stats.min_possible).toEqual(opts.min);
+				expect(stats.max_possible).toEqual(opts.max);
+			});
+		});
+
+
+	});
+
 });
 
