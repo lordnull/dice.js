@@ -185,6 +185,27 @@ For more advanced usage, scopes can be nested.
     var result = dice.roll("[takes.priority] + [nested.value]", scope);
     result == 10; // because we look for an exact match of property name first
 
+Statistics
+==========
+
+If you want some analysis for your rolls, you can get a result set created with
+some basic stats tagged in.
+
+Using `dice.statistics(rollString, scope, samples)` returns an object:
+
+```javascript
+    {
+        'results': [dice_roll_result], // The result set generated
+        'mean': number,                // The average of result set generated
+        'min': number,                 // The smallest value in the result set
+        'max': number,                 // The largest value in the result set
+        'min_possible': number,        // The smallest value that could have
+                                       // been generated.
+        'max_possible': number,        // The largest value that could have
+                                       // been generated.
+    }
+```
+
 Contributing
 ============
 
