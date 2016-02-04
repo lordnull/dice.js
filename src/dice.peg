@@ -71,7 +71,7 @@ lookup
   = v:variable { return {'op':'lookup', 'value':v}; }
 
 variable
-  = "[" varname:[a-zA-Z 0-9]+ "]" { return varname.join(""); }
+  = "[" varname:[^[\]]+ "]" { return varname.join(""); }
 
 integer "integer"
   = digits:[0-9]+ { return parseInt(digits.join(""), 10); }

@@ -21,7 +21,8 @@ describe("Dice", function(){
 		"( 2d6 * 7)", "1d6 + (3d6 *7 )", "( 1 + 2) * 3",
 		"1d20 * (1d6 * ( 3 + [variable] ) )", "r([variable] + 2)d6",
 		"f(5 /3)", "( c([variable] / 7) + 3) * 2",
-		"3 + r(3/ [variable])"];
+		"3 + r(3/ [variable])", "1d[variable with space]",
+		"[variable.with.dot]d20", "3d6 + [varible with-mixed.odd_characters]"];
 
 		strings.map(function(toParse){
 			it("parses " + toParse, function(){
@@ -213,6 +214,35 @@ describe("Dice", function(){
 			expect(results.results.length).toEqual(50);
 			expect(results.max).toEqual(1);
 			expect(results.mean).toEqual(1);
+		});
+
+		it("can lookup weirdly named properties", function(){
+			var propName = "ಠ_ಠ and-more_unusual.characters#$!^*&";
+			var scope = {};
+			scope[propName] = 53;
+			var results = dice.roll("[" + propName + "]", scope);
+			expect(results).toEqual(53);
+		});
+
+		it("can lookup nested scope variables", function(){
+			var scope = {
+				upper: {
+					nested: 7
+				}
+			};
+			var results = dice.roll("[upper.nested]", scope);
+			expect(results).toEqual(7);
+		});
+
+		it("prefers full property name over nested scope", function(){
+			var scope = {
+				"upper.nested": 5,
+				upper: {
+					nested: 93
+				}
+			};
+			var results = dice.roll("[upper.nested]", scope);
+			expect(results).toEqual(5);
 		});
 
 	});
