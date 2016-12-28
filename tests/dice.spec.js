@@ -22,7 +22,8 @@ describe("Dice", function(){
 		"1d20 * (1d6 * ( 3 + [variable] ) )", "r([variable] + 2)d6",
 		"f(5 /3)", "( c([variable] / 7) + 3) * 2",
 		"3 + r(3/ [variable])", "1d[variable with space]",
-		"[variable.with.dot]d20", "3d6 + [varible with-mixed.odd_characters]"];
+		"[variable.with.dot]d20", "3d6 + [varible with-mixed.odd_characters]",
+		"3d5..1", "-1..10", "w-2..-8", "2w[var]..-7"];
 
 		strings.map(function(toParse){
 			it("parses " + toParse, function(){
@@ -87,6 +88,21 @@ describe("Dice", function(){
 			res.rolls.map(function(n){
 				expect(n).toEqual(6);
 			});
+		});
+
+		it("allows min and max to be negative", function(){
+			var res1 = dice.roll("-1..1");
+			expect(res1).toBeLessThan(2);
+			expect(res1).toBeGreaterThan(-2);
+			var res2 = dice.roll("-8..-2");
+			expect(res2).toBeLessThan(-1);
+			expect(res2).toBeGreaterThan(-9);
+		});
+
+		it("allows min and max to be in any order", function(){
+			var res = dice.roll("1..-1");
+			expect(res).toBeLessThan(2);
+			expect(res).toBeGreaterThan(-2);
 		});
 
 		it("parse scope in num dice", function(){
