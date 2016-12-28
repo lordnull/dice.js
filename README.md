@@ -100,6 +100,12 @@ allow one to re-roll all ones:
 This can be combined with the above statements:
 
     3d2..6 + 5
+    
+For players of Fudge or Fate, negative numbers can be used for the 
+minimum and maximum too, and in any order.
+
+    4d-1..1 + 1
+    4d1..-1 + 3
 
 As you can see, the strings to define a roll are very similar to what
 players have been using for years with a minor addition to support minimum
