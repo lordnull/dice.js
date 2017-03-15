@@ -160,4 +160,3 @@ for(k in dice){
     exports[k] = dice[k];
 }
 
-return dice;
