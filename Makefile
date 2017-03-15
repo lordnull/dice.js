@@ -17,7 +17,7 @@ min: compile
 	java -jar compiler.jar --language_in ECMASCRIPT5 --js build/dice.js --js_output_file build/dice.min.js
 
 peg:
-	$(PEGJS) src/dice.peg src/parser.js
+	$(PEGJS) -o src/parser.js src/dice.peg
 
 test: node_test browser_test
 
