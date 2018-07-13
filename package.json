@@ -1,6 +1,6 @@
 {
   "name": "dice.js",
-  "version": "0.9.3",
+  "version": "1.0.0",
   "description": "A parser and evaluator for a useful rpg dice syntax.",
   "main": "build/dice.js",
   "directories": {
