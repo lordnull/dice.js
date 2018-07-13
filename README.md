@@ -1,7 +1,12 @@
 dice.js
-=====
+=======
 
 A Generic Dice syntax parser and evaluator for javascript.
+
+This tool is oriented more for those who wish to implement game systems or
+character management systems. This means the read me can be a bit difficult
+to follow you're not a coder. However, the usage section should be enough
+to allow an end user to write useful rolling strings.
 
 Dependency
 ==========
@@ -66,6 +71,9 @@ to roll them, and the sum of the rolls:
 If that was confusing, that's okay, it makes much more sense after some
 examples.
 
+Basic Rolls
+-----------
+
 If you familiar with Dungeons and Dragons, the following should be
 familiar:
 
@@ -84,14 +92,6 @@ Or maybe you have a penalty:
 
     d20 - 5
 
-If you have played Star Wars d6, using wild die is supported as well:
-
-    3d6 + 1w6
-
-Using `w` instead of `d` means that die will be re-rolled if it comes up
-as a maximum. All the repeat rolls will show up as a single roll in the
-`rolls` property of the returned object.
-
 In some systems, there may be a minimum for the roll; in DnD, some weapons
 allow one to re-roll all ones:
 
@@ -106,10 +106,32 @@ minimum and maximum too, and in any order.
 
     4d-1..1 + 1
     4d1..-1 + 3
+    
+You may have noticed that in the Fudge examples, the -1 and 1 are reversed.
+This is because the numbers on either side of the `..` are not a minimum
+and maximum, but a range. `-1..1` and `1..1` represent the same range. The
+DnD example of the minimum attack could be expressed as:
+
+    3d6..2
+
+
+If you have played Star Wars d6, using wild die is supported as well:
+
+    3d6 + 1w6
+
+Using `w` instead of `d` means that die will be re-rolled and added to the
+result if it comes up as a the value to the right of the `..`. All the
+repeat rolls will show up as a single roll in the `rolls` property of the returned object.
+
+Note that the `xwn..m` syntax will always reroll when the result is `m`. This means that `3w2..6` is *not* the same as `3w6..2`. The former explodes the
+dice on a 6, while the later explodes it on a 2.
+
+Scopes
+------
 
 As you can see, the strings to define a roll are very similar to what
 players have been using for years with a minor addition to support minimum
-numbers. There is another feature, however, that make this system even more
+numbers. There is another feature, however, that makes this system even more
 powerful: scopes.
 
 Let's take a very simplified DnD character, using only the ability
