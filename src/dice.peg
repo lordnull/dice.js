@@ -2,8 +2,9 @@ start
   = dicerolls
 
 dicerolls
-	= v1:multiplicationSeq op:additionOp v2:additionSeq { return {'op':op, args: [v1, v2] }; }
-	/ out:additionSeq { return out; }
+	//= head:multiplicationSeq op:additionOp tail:additionSeq { return {'op':op, args: [v1, v2] }; }
+	/// out:additionSeq { return out; }
+	= out:additionSeq { return out; }
 	/ out:parenExpress { return out; }
 
 parenExpress
@@ -14,13 +15,30 @@ multiplicationOp
 	/ ws "/" ws { return '/'; }
 
 multiplicationSeq
-  = v1:diceroll op:multiplicationOp v2:multiplicationSeq { return {'op':op, args:[v1, v2] }; }
-	/ v1:parenExpress op:multiplicationOp v2:multiplicationSeq { return {'op':op, args:[v1, v2] }; }
+	= multHead:multHead op:multiplicationOp multTail:multiplicationSeq {
+		if(multTail.op !== 'mult'){
+			multTail = {'op':'mult', 'multiplicants':[['*', multTail]]};
+		}
+		multTail.multiplicants[0][0] = op;
+		multTail.multiplicants.unshift(['*', multHead]);
+		return multTail;
+  	}
 	/ d:diceroll { return d; }
 	/ paren:parenExpress { return paren; }
 
+multHead
+	= diceroll
+	/ parenExpress
+
 additionSeq
-	= v1:multiplicationSeq op:additionOp v2:additionSeq { return {'op':op, args:[v1, v2]}; }
+	= addHead:multiplicationSeq op:additionOp addTail:additionSeq {
+		if(addTail.op !== 'sum'){
+			addTail = {'op':'sum', 'addends':[['+', addTail]]};
+		}
+		addTail.addends[0][0] = op;
+		addTail.addends.unshift(['+', addHead]);
+		return addTail;
+	}
 	/ op:multiplicationSeq { return op; }
 	/ op:parenExpress { return op; }
 

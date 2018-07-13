@@ -82,32 +82,46 @@ function determine_min_max_possible(opObject, scope){
 		var maxMinMax = determine_min_max_possible(opObject.args[1], scope);
 		return [minMinMax[0], maxMinMax[1]];
 	}
-	if(opObject.op == '+'){
-		var leftMinMax = determine_min_max_possible(opObject.args[0], scope);
-		var rightMinMax = determine_min_max_possible(opObject.args[1], scope);
-		var min = leftMinMax[0] + rightMinMax[0];
-		var max = leftMinMax[1] + rightMinMax[1];
+	if(opObject.op == 'sum'){
+		var minMaxes = opObject.addends.map(function(sumOp){
+			return [sumOp[0], determine_min_max_possible(sumOp[1], scope)];
+		});
+		var minMaxInit = minMaxes.shift();
+		var min = minMaxes.reduce(function(acc, sumOp){
+			if(sumOp[0] === '+'){
+				return acc + sumOp[1][0];
+			} else {
+				return acc - sumOp[1][1];
+			}
+		}, minMaxInit[1][0]);
+		var max = minMaxes.reduce(function(acc, sumOp){
+			if(sumOp[0] === '+'){
+				return acc + sumOp[1][1];
+			} else {
+				return acc - sumOp[1][0];
+			}
+		}, minMaxInit[1][1]);
 		return [min, max];
 	}
-	if(opObject.op == '-'){
-		var leftMinMax = determine_min_max_possible(opObject.args[0], scope);
-		var rightMinMax = determine_min_max_possible(opObject.args[1], scope);
-		var min = leftMinMax[0] - rightMinMax[0];
-		var max = leftMinMax[1] - rightMinMax[1];
-		return [min, max];
-	}
-	if(opObject.op == '*'){
-		var leftMinMax = determine_min_max_possible(opObject.args[0], scope);
-		var rightMinMax = determine_min_max_possible(opObject.args[1], scope);
-		var min = leftMinMax[0] * rightMinMax[0];
-		var max = leftMinMax[1] * rightMinMax[1];
-		return [min, max];
-	}
-	if(opObject.op == '/'){
-		var leftMinMax = determine_min_max_possible(opObject.args[0], scope);
-		var rightMinMax = determine_min_max_possible(opObject.args[1], scope);
-		var min = leftMinMax[0] / rightMinMax[1];
-		var max = leftMinMax[1] / rightMinMax[0];
+	if(opObject.op == 'mult'){
+		var minMaxes = opObject.multiplicants.map(function(multOp){
+			return [multOp[0], determine_min_max_possible(multOp[1], scope)];
+		});
+		var minMaxInit = minMaxes.shift();
+		var min = minMaxes.reduce(function(acc, multOp){
+			if(multOp[0] === '*'){
+				return acc * multOp[1][0];
+			} else {
+				return acc / multOp[1][1];
+			}
+		}, minMaxInit[1][0]);
+		var max = minMaxes.reduce(function(acc, multOp){
+			if(multOp[0] === '*'){
+				return acc * multOp[1][1];
+			} else {
+				return acc / multOp[1][0];
+			}
+		}, minMaxInit[1][1]);
 		return [min, max];
 	}
 	if(opObject.op == 'paren_express'){
@@ -126,10 +140,28 @@ function stringify_expression(evaled_op){
 };
 
 function stringify_op(evaled_op){
+	if(evaled_op.op === 'sum'){
+		return stringify_seq(evaled_op.addends);
+	}
+	if(evaled_op.op === 'mult'){
+		return stringify_seq(evaled_op.multiplicants);
+	}
 	var rs = stringify(evaled_op.rightSide);
 	var ls = stringify(evaled_op.leftSide);
 	return rs + ' ' + evaled_op.op + ' ' + ls;
 };
+
+function stringify_seq(sequence){
+	var allThings = [];
+	sequence.map(function(opRes){
+		var op = opRes[0];
+		var res = stringify(opRes[1]);
+		allThings.push(op);
+		allThings.push(res);
+	});
+	allThings.shift();
+	return allThings.join(" ");
+}
 
 function stringify_rolls(evaled_roll){
 	var minStr = evaled_roll.min > 1 ? evaled_roll.min + '..' : '';

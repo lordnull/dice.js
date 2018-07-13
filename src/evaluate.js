@@ -140,56 +140,50 @@ var ops = {
 		};
 	},
 
-	'+': function(v1, v2){
+	'mult': function(){
+		var args = this.multiplicants;
+		args = args.map(function(multOp){
+			return [multOp[0], resolve_op(multOp[1])];
+		});
 		return function(scope){
-			var rightSide = v1(scope);
-			var leftSide = v2(scope);
-			var sum = rightSide + leftSide;
+			var scopedArgs = args.map(function(multOp){
+				return [multOp[0], multOp[1](scope)];
+			});
+			var product = scopedArgs.reduce(function(acc, multOp){
+				if(multOp[0] === '*'){
+					return acc * multOp[1];
+				} else {
+					return acc / multOp[1];
+				}
+			}, 1);
+			product = new Number(product);
+			product.op = 'mult';
+			product.multiplicants = scopedArgs;
+			return product;
+		}
+	},
+
+	'sum': function(){
+		var args = this.addends;
+		args = args.map(function(sumOp){
+			return [sumOp[0], resolve_op(sumOp[1])];
+		});
+		return function(scope){
+			var scopedArgs = args.map(function(sumOp){
+				return [sumOp[0], sumOp[1](scope)]
+			});
+			var sum = scopedArgs.reduce(function(acc, sumOp){
+				if(sumOp[0] === '+'){
+					return acc + sumOp[1];
+				} else {
+					return acc - sumOp[1];
+				}
+			}, 0);
 			sum = new Number(sum);
-			sum.op = '+';
-			sum.rightSide = rightSide;
-			sum.leftSide = leftSide;
+			sum.op = 'sum';
+			sum.addends = scopedArgs;
 			return sum;
-		};
-	},
-
-	'-': function(v1, v2){
-		return function(scope){
-			var rightSide = v1(scope);
-			var leftSide = v2(scope);
-			var sum = rightSide - leftSide;
-			sum = new Number(sum);
-			sum.op = '-';
-			sum.rightSide = rightSide;
-			sum.leftSide = leftSide;
-			return sum;
-		};
-	},
-
-	'*': function(v1, v2){
-		return function(scope){
-			var rightSide = v1(scope);
-			var leftSide = v2(scope);
-			var tots = rightSide * leftSide;
-			tots = new Number(tots);
-			tots.op = '*';
-			tots.rightSide = rightSide;
-			tots.leftSide = leftSide;
-			return tots;
-		};
-	},
-
-	'/': function(v1, v2){
-		return function(scope){
-			var rightSide = v1(scope);
-			var leftSide = v2(scope);
-			var tots = rightSide / leftSide;
-			tots = new Number(tots);
-			tots.op = '/';
-			tots.rightSide = rightSide;
-			tots.leftSide = leftSide;
-			return tots;
-		};
+		}
 	},
 
 	'paren_express': function(op){
