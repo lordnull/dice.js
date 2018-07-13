@@ -42,6 +42,21 @@ describe("Dice", function(){
 			expect(res).toEqual(3);
 		});
 
+		it("obeys order of operations, mult", function(){
+			var res = dice.roll("5 / 2 * 3");
+			expect(res).toEqual( ( 5 / 2 * 3 ) );
+		});
+
+		it("obeys order of operations, add", function(){
+			var res = dice.roll("5 - 2 + 3");
+			expect(res).toEqual( ( 5 - 2 + 3 ) );
+		});
+
+		it("obeys order of operations, mix", function(){
+			var res = dice.roll("5 * 2 + 3 * 4 + 8");
+			expect(res).toEqual( (5 * 2 + 3 * 4 + 8) );
+		});
+
 		it("parses and evals simple rolls", function(){
 			var res = dice.roll("d20");
 			expect(res).toBeLessThan(21);
