@@ -115,7 +115,7 @@ DnD example of the minimum attack could be expressed as:
     3d6..2
 
 
-If you have played Star Wars d6, using wild die is supported as well:
+If you have played Star Wars d6, using a wild die is supported as well:
 
     3d6 + 1w6
 
@@ -124,7 +124,7 @@ result if it comes up as a the value to the right of the `..`. All the
 repeat rolls will show up as a single roll in the `rolls` property of the returned object.
 
 Note that the `xwn..m` syntax will always reroll when the result is `m`. This means that `3w2..6` is *not* the same as `3w6..2`. The former explodes the
-dice on a 6, while the later explodes it on a 2.
+dice on a 6, while the latter explodes it on a 2.
 
 Scopes
 ------
