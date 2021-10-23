@@ -1,6 +1,6 @@
 // Testing min.js because if the min works, the unminned should also work
 if(typeof require !== 'undefined'){
-    var dice = require('../src/dice.js');
+	var dice = require('../src/dice.js');
 }
 
 describe("Dice", function(){
@@ -13,17 +13,57 @@ describe("Dice", function(){
 	});
 
 	describe("can parse a variety of intputs", function(){
-		var strings = ["1", "1d6", "d20", "3d8", "3d2..8", "1d20 + 5",
-		"3d6 + 1d12", "d20 + [Con Mod]", "3d[W]",
-		"3d[W] + 2 + [Strength Mod] + [Enhance]d12", "3d6 + 1w6",
-		"3d6 + -2", "3d6 * 2", "15 / 3", "f[scope var]",
-		"3dr[roundable]", "c[tough]w7", "3..5", "(1)", "(1 + 2)",
-		"( 2d6 * 7)", "1d6 + (3d6 *7 )", "( 1 + 2) * 3",
-		"1d20 * (1d6 * ( 3 + [variable] ) )", "r([variable] + 2)d6",
-		"f(5 /3)", "( c([variable] / 7) + 3) * 2",
-		"3 + r(3/ [variable])", "1d[variable with space]",
-		"[variable.with.dot]d20", "3d6 + [varible with-mixed.odd_characters]",
-		"3d5..1", "-1..10", "w-2..-8", "2w[var]..-7"];
+		var strings =
+			["1"
+			,"1d6"
+			,"d20"
+			,"3d8"
+			,"3d2..8"
+			,"1d20 + 5"
+			,"3d6 + 1d12"
+			,"d20 + [Con Mod]"
+			,"3d[W]"
+			,"3d[W] + 2 + [Strength Mod] + [Enhance]d12"
+			,"3d6 + 1w6"
+			,"3d6 + -2"
+			,"3d6 * 2"
+			,"15 / 3"
+			,"f[scope var]"
+			,"3dr[roundable]"
+			,"c[tough]w7"
+			,"3..5"
+			,"(1)"
+			,"(1 + 2)"
+			,"( 2d6 * 7)"
+			,"1d6 + (3d6 *7 )"
+			,"( 1 + 2) * 3"
+			,"1d20 * (1d6 * ( 3 + [variable] ) )"
+			,"r([variable] + 2)d6"
+			,"f(5 /3)"
+			,"( c([variable] / 7) + 3) * 2"
+			,"3 + r(3/ [variable])"
+			,"1d[variable with space]"
+			,"[variable.with.dot]d20"
+			,"3d6 + [varible with-mixed.odd_characters]"
+			,"3d5..1"
+			,"-1..10"
+			,"w-2..-8"
+			,"2w[var]..-7"
+			/*,"4d6{ keep highest 3 }"
+			,"4d6:h3"
+			,"4d6{ drop lowest 1 }"
+			,"4d6{ drop lowest }"
+			,"4d6:l"
+			,"2d20{ keep highest }"
+			,"2d20:h"
+			,"2d20:l"
+			,"3d6{ reroll 1 1x}"
+			,"3d6rr"
+			,"3d6{reroll <2 2x}"
+			,"3d6{ explode }"
+			,"3d6{ explode equal 5 }"
+			,"4d6{ reroll 1 1x; keep highest 3 }"*/
+			];
 
 		strings.map(function(toParse){
 			it("parses " + toParse, function(){
@@ -33,6 +73,127 @@ describe("Dice", function(){
 				expect(parseIt).not.toThrow();
 			});
 		});
+	});
+
+	describe("Randomly generated roll strings", function(){
+
+		let rand = function(min, max){
+			let range = max - min;
+			let rnd = Math.random();
+			return Math.round(rnd) + min;
+		}
+
+		let randFromList = function(array){
+			let mapped = array.map(function(e){ return {k: Math.random, v:e}; });
+			mapped.sort((a,b) => a - b);
+			let sorted = mapped.map((e) => e.v);
+			return sorted[0];
+		}
+
+		let rollType = function(){
+			return randFromList("dwDW");
+		}
+
+		let numDice = function(){
+			let rnd = rand(0, 5);
+			if(rnd == 0){
+				return "";
+			} else {
+				return rnd.toString();
+			}
+		}
+
+		let minMax = function(){
+			let rnd1 = rand(-10, 10);
+			let rnd2 = rand(-10, 10);
+			return (rnd1.toString()) + ".." + (rnd2.toString());
+		}
+
+		let roll = function(){
+			let func = randFromList([minMax, dndRoll]);
+			return func();
+		}
+
+		let dndRoll = function(){
+			let type = rollType();
+			let numDiceStr = numDice()
+			let typeMixMax = rand(0, 1);
+			let minMaxfunc = randFromList([minMax, intVal])
+			let minMaxStr = minMaxfunc();
+			return numDiceStr + type + minMaxStr;
+		}
+
+		let intVal = function(){
+			let func = randFromList([intLiteral, varExpression, roundedParen]);
+			return func();
+		}
+
+		let intLiteral = function(){
+			let rnd1 = rand(-100, 100);
+			return rnd1.toString();
+		}
+
+		let varExpression = function(){
+			let varNameStr = varName();
+			let roundFuncRnd = rand(0, 1);
+			let roundFuncStr = randFromList(["", roundFunc()]);
+			return roundFuncStr + "[" + varNameStr + "]"
+		}
+
+		let varName = function(){
+			let chars = "`1234567890-=qwertyuiop[]\\asdfghjkl;'zxcvbnm,./~!@#$%^&*()_+QWERTYUIOP{}|ASDFGHJJKL:\"ZXCVBNM<>? ";
+			let lengthRnd = rand(1, 20);
+			let outStr = "";
+			for(let i = 1; i < lengthRnd; i++){
+				randChar = randFromList(chars);
+				outStr = outStr + randChar;
+			}
+			return outStr;
+		}
+
+		let roundFunc = function(){
+			return randFromList("cfr");
+		}
+
+		let roundedParen = function(){
+			return roundFunc() + paren();
+		}
+
+		let rawParens = function(){
+			return "(" + ws() + form() + ws() + ")";
+		}
+
+		let ws = function(){
+			return "".padEnd(rand(0,5));
+		}
+
+		let form = function(){
+			let func = randFromList(roll, mathSeq, paren, roundedParen);
+			return func();
+		}
+
+		let mathSeq = function(){
+			let leftSide = randFromList(roll, paren, roundedParen, mathForm);
+			let rightSide = randFromList(roll, paren, roundedParen);
+			let op = randFromList("-+*/");
+			return leftSide() + ws() + op + ws() + rightSide();
+		}
+
+		let start = function(){
+			//let func = randFromList([intVal, roll, mathSeq, rawParens]);
+			let func = intLiteral;
+			return ws() + func() + ws();
+		}
+
+		for(var ti = 0; ti < 100; ti++){
+			let str = start();
+			it("can parse: \"" + str + "\"", function(){
+				let f = function(){
+					dice.parse(str);
+				}
+				expect(f).not.toThrow();
+			})
+		}
 	});
 
 	describe("Roll results", function(){

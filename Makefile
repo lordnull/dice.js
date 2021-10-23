@@ -25,7 +25,7 @@ browser_test: get-deps peg compile
 	$(KARMA) start karma.conf.js --single-run
 
 dbgtest: get-deps peg compile
-	$(KARMA) start karma.conf.js
+	$(KARMA) start karma.conf.js --debug
 
 node_test: get-deps peg compile
 	$(NODE)/jasmine-node tests
