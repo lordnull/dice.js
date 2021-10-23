@@ -1,5 +1,5 @@
 start
-	= dicerolls
+	= ws r:dicerolls ws { return r; }
 
 dicerolls
 	//= head:multiplicationSeq op:additionOp tail:additionSeq { return {'op':op, args: [v1, v2] }; }
