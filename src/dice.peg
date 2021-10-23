@@ -1,5 +1,5 @@
 start
-  = dicerolls
+	= dicerolls
 
 dicerolls
 	//= head:multiplicationSeq op:additionOp tail:additionSeq { return {'op':op, args: [v1, v2] }; }
@@ -8,10 +8,10 @@ dicerolls
 	/ out:parenExpress { return out; }
 
 parenExpress
-  = "(" ws rolls:dicerolls ws ")" { return {'op':'paren_express', args: [rolls]} }
+	= "(" ws rolls:dicerolls ws ")" { return {'op':'paren_express', args: [rolls]} }
 
 multiplicationOp
-  = ws "*" ws { return '*'; }
+	= ws "*" ws { return '*'; }
 	/ ws "/" ws { return '/'; }
 
 multiplicationSeq
@@ -22,7 +22,7 @@ multiplicationSeq
 		multTail.multiplicants[0][0] = op;
 		multTail.multiplicants.unshift(['*', multHead]);
 		return multTail;
-  	}
+		}
 	/ d:diceroll { return d; }
 	/ paren:parenExpress { return paren; }
 
@@ -43,54 +43,54 @@ additionSeq
 	/ op:parenExpress { return op; }
 
 additionOp
-  = ws "+" ws { return "+"; }
+	= ws "+" ws { return "+"; }
 	/ ws "-" ws { return "-"; }
 
 diceroll
-  = x:intval mode:rollmode mm:maybe_minmax { return {'op':mode, 'args':[x, mm]} }
-  / mode:rollmode mm:maybe_minmax { return {'op':mode, 'args':[{'op':'static', 'value':1}, mm]}; }
-  / mm:minmax { return { 'op':'d', 'args':[ {'op':'static', 'value':1}, mm]}; }
-  / x:intval { return x; }
+	= x:intval mode:rollmode mm:maybe_minmax { return {'op':mode, 'args':[x, mm]} }
+	/ mode:rollmode mm:maybe_minmax { return {'op':mode, 'args':[{'op':'static', 'value':1}, mm]}; }
+	/ mm:minmax { return { 'op':'d', 'args':[ {'op':'static', 'value':1}, mm]}; }
+	/ x:intval { return x; }
 
 rollmode
-  = "d"
-  / "w"
+	= "d"
+	/ "w"
 
 maybe_minmax
-  = mm:minmax { return mm; }
-  / max:intval { return {'op':'random', 'args':[{'op':'static', 'args':[], 'value':1}, max]}; }
+	= mm:minmax { return mm; }
+	/ max:intval { return {'op':'random', 'args':[{'op':'static', 'args':[], 'value':1}, max]}; }
 
 minmax
-  = min:intval ".." max:intval { return {'op':'random', 'args':[min, max]}; }
+	= min:intval ".." max:intval { return {'op':'random', 'args':[min, max]}; }
 
 ws
-  = [ ]*
+	= [ ]*
 
 intval
-  = i:integer {
+	= i:integer {
 		return {'op': 'static', value: i};
 	}
-  / l:lookup{
+	/ l:lookup{
 		return l;
 	}
 	/ f:mathit v:lookup{
 		return {'op':f, args:[v]};
 	}
 	/ f:mathit ex:parenExpress{
-    return {'op':f, args:ex.args};
+		return {'op':f, args:ex.args};
 	}
 
 mathit
-  = "f" { return 'floor'; }
+	= "f" { return 'floor'; }
 	/ "r" { return 'round'; }
 	/ "c" { return 'ceil'; }
 
 lookup
-  = v:variable { return {'op':'lookup', 'value':v}; }
+	= v:variable { return {'op':'lookup', 'value':v}; }
 
 variable
-  = "[" varname:[^[\]]+ "]" { return varname.join(""); }
+	= "[" varname:[^[\]]+ "]" { return varname.join(""); }
 
 integer "integer"
-  = digits:[0-9]+ { return parseInt(digits.join(""), 10); }
+	= digits:[0-9]+ { return parseInt(digits.join(""), 10); }
 	/ "-" digits:[0-9]+ { return parseInt(digits.join(""), 10) * -1; }
