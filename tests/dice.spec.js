@@ -327,6 +327,19 @@ describe("Dice", function(){
 			expect(results).toEqual(5);
 		});
 
+		it("treats 'D' and 'd' the same", function(){
+			var r1 = dice.roll("1d1");
+			var r2 = dice.roll("1D1");
+			expect(r1).toEqual(r2);
+		});
+
+		it("treats 'W' and 'w' the same", function(){
+			var r1 = dice.statistics('1w6');
+			var r2 = dice.statistics('1W6');
+			expect(r1.min_possible).toEqual(r2.min_possible);
+			expect(r1.max_possible).toEqual(r2.max_possible);
+		})
+
 	});
 
 	describe("simple statisitcs tests", function(){
