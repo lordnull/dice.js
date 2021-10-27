@@ -1,0 +1,9 @@
+{
+  "spec_dir": "tests",
+  "spec_files": [
+    "dice.spec.js"
+  ],
+  "helpers": [ ],
+  "stopSpecOnExpectationFailure": false,
+  "random": true
+}

@@ -1,34 +1,38 @@
-NODE ?= "./node_modules/.bin"
-KARMA ?= "$(NODE)/karma"
-PEGJS ?= "$(NODE)/pegjs"
-BROWSERIFY ?= "$(NODE)/browserify"
+TEST_BROWSER?=chrome
 
-all: compile min
+all: build/dice.js
 
-get-deps:
-	npm install
-
-compile: get-deps
+build/.deps-done: Makefile
 	mkdir -p build
-#	cat src/dice.js src/dice.parse.js src/dice.eval.js > build/dice.js
-	$(BROWSERIFY) -e src/dice.js > build/dice.js -s dice
+	npm install -y && touch build/.deps-done
 
-min: compile
-	java -jar compiler.jar --language_in ECMASCRIPT5 --js build/dice.js --js_output_file build/dice.min.js
+src/parser.js: build/.deps-done src/dice.peg
+	npx pegjs -o src/parser.js src/dice.peg
 
-peg:
-	$(PEGJS) -o src/parser.js src/dice.peg
+build/dice.js: build/.deps-done src/parser.js src/evaluate.js
+	mkdir -p build
+	npx browserify -e src/dice.js > build/dice.js -s dice
 
 test: node_test browser_test
 
-browser_test: get-deps peg compile
-	$(KARMA) start karma.conf.js --single-run
+browser_test: build/.deps-done build/dice.js tests/dice.browser.spec.js
+	npx jasmine-browser-runner runSpecs --config=jasmine-browser.json --color --no-random --browser="$(TEST_BROWSER)"
 
-dbgtest: get-deps peg compile
-	$(KARMA) start karma.conf.js --debug
+dbgtest: build/.deps-done build/dice.js tests/dice.browser.spec.js
+	npx jasmine-browser-runner serve --config=jasmine-browser.json
 
-node_test: get-deps peg compile
-	$(NODE)/jasmine-node tests
+node_test: build/.deps-done build/dice.js
+	npx jasmine --config=jasmine.json
+
+tests/dice.browser.spec.js: tests/dice.spec.js tests/rand_roll_gen.js
+	npx browserify -e tests/dice.spec.js > tests/dice.browser.spec.js -s dice.spec
 
 clean:
-	rm -rf $(NODE)
+	rm -rf build/*
+	rm -f src/parser.js
+
+clean-deps:
+	rm -rf node_modules
+	rm -f build/.deps-done
+
+clean-all: clean clean-deps

@@ -1,7 +1,5 @@
-// Testing min.js because if the min works, the unminned should also work
-if(typeof require !== 'undefined'){
-	var dice = require('../src/dice.js');
-}
+var dice = require('../src/dice.js');
+var rand_roll_gen = require('./rand_roll_gen');
 
 describe("Dice", function(){
 
@@ -75,126 +73,18 @@ describe("Dice", function(){
 		});
 	});
 
-	describe("Randomly generated roll strings", function(){
-
-		let rand = function(min, max){
-			let range = max - min;
-			let rnd = Math.random();
-			return Math.round(rnd) + min;
-		}
-
-		let randFromList = function(array){
-			let mapped = array.map(function(e){ return {k: Math.random, v:e}; });
-			mapped.sort((a,b) => a - b);
-			let sorted = mapped.map((e) => e.v);
-			return sorted[0];
-		}
-
-		let rollType = function(){
-			return randFromList("dwDW");
-		}
-
-		let numDice = function(){
-			let rnd = rand(0, 5);
-			if(rnd == 0){
-				return "";
-			} else {
-				return rnd.toString();
-			}
-		}
-
-		let minMax = function(){
-			let rnd1 = rand(-10, 10);
-			let rnd2 = rand(-10, 10);
-			return (rnd1.toString()) + ".." + (rnd2.toString());
-		}
-
-		let roll = function(){
-			let func = randFromList([minMax, dndRoll]);
-			return func();
-		}
-
-		let dndRoll = function(){
-			let type = rollType();
-			let numDiceStr = numDice()
-			let typeMixMax = rand(0, 1);
-			let minMaxfunc = randFromList([minMax, intVal])
-			let minMaxStr = minMaxfunc();
-			return numDiceStr + type + minMaxStr;
-		}
-
-		let intVal = function(){
-			let func = randFromList([intLiteral, varExpression, roundedParen]);
-			return func();
-		}
-
-		let intLiteral = function(){
-			let rnd1 = rand(-100, 100);
-			return rnd1.toString();
-		}
-
-		let varExpression = function(){
-			let varNameStr = varName();
-			let roundFuncRnd = rand(0, 1);
-			let roundFuncStr = randFromList(["", roundFunc()]);
-			return roundFuncStr + "[" + varNameStr + "]"
-		}
-
-		let varName = function(){
-			let chars = "`1234567890-=qwertyuiop[]\\asdfghjkl;'zxcvbnm,./~!@#$%^&*()_+QWERTYUIOP{}|ASDFGHJJKL:\"ZXCVBNM<>? ";
-			let lengthRnd = rand(1, 20);
-			let outStr = "";
-			for(let i = 1; i < lengthRnd; i++){
-				randChar = randFromList(chars);
-				outStr = outStr + randChar;
-			}
-			return outStr;
-		}
-
-		let roundFunc = function(){
-			return randFromList("cfr");
-		}
-
-		let roundedParen = function(){
-			return roundFunc() + paren();
-		}
-
-		let rawParens = function(){
-			return "(" + ws() + form() + ws() + ")";
-		}
-
-		let ws = function(){
-			return "".padEnd(rand(0,5));
-		}
-
-		let form = function(){
-			let func = randFromList(roll, mathSeq, paren, roundedParen);
-			return func();
-		}
-
-		let mathSeq = function(){
-			let leftSide = randFromList(roll, paren, roundedParen, mathForm);
-			let rightSide = randFromList(roll, paren, roundedParen);
-			let op = randFromList("-+*/");
-			return leftSide() + ws() + op + ws() + rightSide();
-		}
-
-		let start = function(){
-			//let func = randFromList([intVal, roll, mathSeq, rawParens]);
-			let func = intLiteral;
-			return ws() + func() + ws();
-		}
-
-		for(var ti = 0; ti < 100; ti++){
-			let str = start();
-			it("can parse: \"" + str + "\"", function(){
-				let f = function(){
+	describe("Randomly generated rolls", function(){
+		console.log(rand_roll_gen);
+		for(let i = 0; i < 100; i++){
+			let str = rand_roll_gen.start();
+			it("Can parse: \"" + str + "\"", function(){
+				function parseIt(){
 					dice.parse(str);
 				}
-				expect(f).not.toThrow();
+				expect(parseIt).not.toThrow();
 			})
 		}
-	});
+	})
 
 	describe("Roll results", function(){
 
@@ -478,4 +368,7 @@ describe("Dice", function(){
 	});
 
 });
+
+exports.dice = dice;
+exports.rrg = rand_roll_gen;
 
