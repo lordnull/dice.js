@@ -87,7 +87,7 @@ function varExpression(ctx){
 }
 
 function varName(ctx){
-	let chars = "`1234567890-=qwertyuiop[]\\asdfghjkl;'zxcvbnm,./~!@#$%^&*()_+QWERTYUIOP{}|ASDFGHJJKL:\"ZXCVBNM<>? ";
+	let chars = "`1234567890-=qwertyuiop\\asdfghjkl;'zxcvbnm,./~!@#$%^&*()_+QWERTYUIOP{}|ASDFGHJJKL:\"ZXCVBNM<>? ";
 	let lengthRnd = rand(1, 20);
 	let outStr = "";
 	for(let i = 0; i < lengthRnd; i++){
