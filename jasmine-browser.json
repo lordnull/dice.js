@@ -1,0 +1,9 @@
+{
+  "srcDir": "build",
+  "srcFiles": [ ],
+  "specDir": "tests",
+  "specFiles": [
+    "dice.browser.spec.js"
+  ],
+  "helpers": [ ]
+}

@@ -213,10 +213,6 @@ exports.eval = function(parsed, scope){
 	scope = scope || {};
 	var ops = resolve_op(parsed)
 	return ops(scope);
-
-	/*var acc = {sum: 0, mode: "+", rolls: [], 'scope':scope}
-	var reduced = parsed.reduce(reduceThemBones, acc);
-	return {sum: reduced.sum, rolls: reduced.rolls};*/
 }
 
 exports.ops = ops;

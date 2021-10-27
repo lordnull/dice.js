@@ -6,17 +6,12 @@
   "directories": {
     "test": "tests"
   },
-  "dependencies": {},
   "devDependencies": {
-    "browserify": "~14.1.0",
-    "jasmine-core": "^2.5.2",
-    "jasmine-node": "~1.14.5",
-    "karma": "~1.5.0",
-    "karma-chrome-launcher": "~2.0",
-    "karma-firefox-launcher": "~1.0.1",
-    "karma-jasmine": "~1.1",
-    "karma-phantomjs-launcher": "~1.0.4",
-    "pegjs": "~0.10.0"
+    "browserify": "^17.0.0",
+    "jasmine-browser-runner": "^0.9.0",
+    "jasmine-core": "^3.10.1",
+    "jasmine-node": "^3.0.0",
+    "pegjs": "^0.10.0"
   },
   "scripts": {
     "test": "make test"
