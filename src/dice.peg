@@ -47,14 +47,16 @@ additionOp
 	/ ws "-" ws { return "-"; }
 
 diceroll
-	= x:intval mode:rollmode mm:maybe_minmax { return {'op':mode, 'args':[x, mm]} }
-	/ mode:rollmode mm:maybe_minmax { return {'op':mode, 'args':[{'op':'static', 'value':1}, mm]}; }
+	= x:intval mode:rollmode mm:maybe_minmax { return {'op':mode.toLowerCase(), 'args':[x, mm]} }
+	/ mode:rollmode mm:maybe_minmax { return {'op':mode.toLowerCase(), 'args':[{'op':'static', 'value':1}, mm]}; }
 	/ mm:minmax { return { 'op':'d', 'args':[ {'op':'static', 'value':1}, mm]}; }
 	/ x:intval { return x; }
 
 rollmode
 	= "d"
+	/ "D"
 	/ "w"
+	/ "W"
 
 maybe_minmax
 	= mm:minmax { return mm; }
