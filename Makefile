@@ -24,7 +24,7 @@ dbgtest: build/.deps-done build/dice.js tests/dice.browser.spec.js
 node_test: build/.deps-done build/dice.js
 	npx jasmine --config=jasmine.json
 
-tests/dice.browser.spec.js: tests/dice.spec.js tests/rand_roll_gen.js
+tests/dice.browser.spec.js: tests/dice.spec.js tests/rand_roll_gen.js build/dice.js
 	npx browserify -e tests/dice.spec.js > tests/dice.browser.spec.js -s dice.spec
 
 clean:
