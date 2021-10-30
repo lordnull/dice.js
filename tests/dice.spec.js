@@ -47,20 +47,37 @@ describe("Dice", function(){
 			,"-1..10"
 			,"w-2..-8"
 			,"2w[var]..-7"
-			/*,"4d6{ keep highest 3 }"
-			,"4d6:h3"
+			// start new group of synonyms
+			,"4d6{ keep highest 3 }"
+			,"4d6:kh3"
+			// start new group of synonyms
 			,"4d6{ drop lowest 1 }"
+			,"4d6:dl1"
 			,"4d6{ drop lowest }"
+			,"4d6:dl"
+			,"4d6:d"
 			,"4d6:l"
+			// start new group of synonyms
+			,"2d20{ keep highest 1 }"
 			,"2d20{ keep highest }"
+			,"2d20:kh1"
+			,"2d20:k"
 			,"2d20:h"
 			,"2d20:l"
+			// start new group of synonyms
+			,"2d20{ drop highest }"
+			,"2d20{ keep lowest }"
+			// start new group of synonyms
 			,"3d6{ reroll 1 1x}"
-			,"3d6rr"
+			,"3d6:rr"
+			// end of synonmy groups.
 			,"3d6{reroll <2 2x}"
 			,"3d6{ explode }"
 			,"3d6{ explode equal 5 }"
-			,"4d6{ reroll 1 1x; keep highest 3 }"*/
+			,"4d6{ reroll 1 1x; keep highest 3 }"
+			,"-10..10{ keep lowest 3}"
+			,"[fireball]d6{ keep lowest [fireball keepers]"
+			,"[fireball]d6{ reroll < [fireball threshold] [reroll times]x"
 			];
 
 		strings.map(function(toParse){

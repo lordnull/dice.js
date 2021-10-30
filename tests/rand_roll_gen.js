@@ -30,6 +30,10 @@ function randFromList(array){
 	return sorted[0];
 }
 
+function emptyStr(){
+	return "";
+}
+
 function rollType(){
 	return randFromList("dwDW".split(''));
 }
@@ -50,9 +54,166 @@ function minMax(ctx){
 	return (min + ".." + max);
 }
 
+function rollModifiers(ctx){
+	let func = randFromList([emptyStr, simpleModifier, modifierSequence]);
+	return limit(ctx, func, "");
+}
+
+function simpleModifier(ctx){
+	let func = randFromList([simpleReroll, simpleKeepDrop]);
+	ctx.length = ctx.length + 1;
+	let modifierStr = limit(ctx, func, "l");
+	return ":" + modifierStr;
+}
+
+function simpleReroll(ctx){
+	ctx.length = ctx.length + 2;
+	return "rr";
+}
+
+function simpleKeepDrop(ctx){
+	let integerFunc = randFromList([emptyStr, intVal]);
+	let stringTag = limit(ctx, simpleKeepDropAction, "H");
+}
+
+function simpleKeepDropAction(ctx){
+	let keepDropStr = limit(ctx, randFromList([emptyStr, simpleKeepDrop]), "");
+	let lowHighStr = limit(ctx, randFromList([emptyStr, simpleHighLow]), "");
+	let intMany = limit(ctx, randFromList([emptyStr, intVal]), "");
+	return keepDropStr + lowHighStr + intMany;
+}
+
+function simpleKeepDrop(ctx){
+	ctx.length = ctx.length + 1;
+	let opts = "KkDd".split('');
+	return randFromList(opts);
+}
+
+function simpleHighLow(ctx){
+	ctx.length = ctx.length + 1;
+	let opts = "HhLl".split('');
+	return randFromList(opts);
+}
+
+function modifierSequence(ctx){
+	ctx.length = ctx.length + 2;
+	let modifierSeq = limit(ctx, modifiers, "explode");
+	return modifierSeq;
+}
+
+function modifiers(ctx){
+	let firstModifierFunc = randFromList([keepModifier, dropModifier, rerollModifier, explodeModifier]);
+	ctx.length = ctx.length + 2;
+	let firstModifierStr = limit(ctx, firstModifierFunc, "explode");
+	let additionalModifiers = rand(0, 4);
+	let out = firstModifierStr;
+	for(let i = 0; i <= modifiers; i++){
+		let modifierFunc = randFromList([keepModifier, dropModifier, rerollModifier, explodeModifier]);
+		let modifierStr = limit(ctx, modifierFunc, "");
+		if(modifierStr.length > 0){
+			ctx.length = ctx.length + 1;
+			out = out + ";" + modifierStr;
+		}
+	}
+	return "{" + out + "}";
+}
+
+function keepModifier(ctx){
+	return keepDropModifier(ctx, "keep");
+}
+
+function keepDropModifier(ctx, mode){
+	let ws1 = ws();
+	let ws2 = ws();
+	let out = ws1 + mode + ws2;
+	let keepWhich = randFromList(["highest", "lowest"]);
+	out = out + keepWhich;
+	ctx.length = ctx.length + out.length;
+	let ws3 = ws();
+	let howManyFunc = randFromList([emptyStr, (ctx) => " " + ws3 + intVal(ctx)]);
+	let howManyStr = limit(ctx, howManyFunc, "");
+	if(howManyFunc.length > 0){
+		ctx.length = ctx.length + ws3.length + 1;
+	}
+	out = out + howManyStr;
+	return out;
+}
+
+function dropModifier(ctx){
+	return keepDropModifier(ctx, "drop");
+}
+
+function rerollModifier(ctx){
+	let ws1 = ws();
+	let out = ws1 + "reroll";
+	out = out + ws()
+	let rerollThreshold = randFromList(["", "<", ">", "="]);
+	out = out + rerollThreshold;
+	out = out + ws();
+	ctx.length = ctx.length + out.length;
+	let thresholdValueStr = limit(ctx, intVal, "");
+	if(thresholdValueStr.length === 0){
+		out = out + "1";
+		ctx.length = ctx.length + 1;
+	}
+	out = out + " ";
+	let ws3 = ws();
+	ctx.length = ctx.length + ws3.length + 1;
+	let howOftenReroll = limit(ctx, intVal, "");
+	if(howOftenReroll.length == 0){
+		out = out + "1";
+		ctx.length = ctx.length + 1;
+	}
+	ctx.length = ctx.length + 1;
+	out = out + "x";
+	let ws4 = ws();
+	ctx.length = ctx.length + ws4.length;
+	out = out + ws4;
+	return out;
+}
+
+function explodeModifier(ctx){
+	let ws1 = ws();
+	let out = ws1 + "explode";
+	let ws2 = ws();
+	out = out + ws2;
+	ctx.length = ctx.length + out.length;
+	let explodeFunc = randFromList([emptyStr, explodeModifierCondition]);
+	let explodeConditionStr = limit(ctx, explodeModifierCondition, "");
+	if(explodeConditionStr.length > 0){
+		out = out + " ";
+		ctx.length = ctx.length + 1;
+	}
+	let ws3 = ws();
+	ctx.length = ctx.length + ws3.length;
+	out = out + explodeConditionStr + ws3;
+	return out;
+}
+
+function explodeModifierCondition(ctx){
+	let condition = randFromList(["equal", "=", "!=", ">", ">=", "<", "<="]);
+	let ws1 = ws();
+	let out = condition + " " + ws1;
+	ctx.length = ctx.length + out.length;
+	let numberStr = limit(ctx, intVal, "");
+	if(numberStr.length === 0){
+		numberStr = "1";
+		ctx.length = ctx.length + 1;
+	}
+	out = out + numberStr;
+	let ws2 = ws();
+	ctx.length = ctx.length + ws2.length;
+	out = out + ws2;
+	return out;
+}
+
 function roll(ctx){
 	let func = randFromList([minMax, dndRoll]);
-	return limit(ctx, func, "1d6");
+	let rollModifiersFunc = randFromList([emptyStr, rollModifiers]);
+	let rollOnly = limit(ctx, func, "1d6");
+	ctx.length = ctx.length + rollOnly.length
+	let modifiers = limit(ctx, rollModifiersFunc, "");
+	return rollOnly + modifiers;
 }
 
 function dndRoll(ctx){
