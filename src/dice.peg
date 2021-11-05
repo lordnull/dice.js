@@ -1,14 +1,110 @@
+{{
+let grammerAST = require("./grammerAST");
+}}
+
+start
+	= mathSeq
+
+mathSeq
+	= opt_ws exp:expression (opt_ws @mathOp opt_ws @expression)* opt_ws
+
+mathOp
+	= "*"
+	/ "/"
+	/ "+"
+	/ "-"
+
+expression
+	= diceroll
+	/ parenExpress
+	/ intVal
+
+diceroll
+	= x:intVal? [dD] min:intVal ".." max:intVal rollModifiers?
+	/ x:intVal? [dD] max:intVal rollModifiers?
+	/ x:intVal? [wW] min:intVal ".." max:intVal rollModifiers?
+	/ x:intVal? [wW] max:intVal rollModifiers?
+	/ min:intVal ".." max:intVal rollModifiers?
+
+rollModifiers
+	= simpleModifiers
+	/ fullModifiers
+
+simpleModifiers
+	= ":" [kKdD] [hHlL]? intVal?
+	/ ":" [hHlL] intVal?
+	/ ":rr" intVal?
+
+fullModifiers
+	= opt_ws "{" opt_ws modifierSeq opt_ws "}"
+
+modifierSeq
+	= modifier ( opt_ws ";" opt_ws @modifier )*
+
+modifier
+	= keepDropModifier
+	/ explodeModifier
+	/ rerollModifier
+
+keepDropModifier
+	= ("keep" / "drop") (need_ws "highest" / need_ws "lowest") (need_ws intVal)?
+
+explodeModifier
+	= "explode" (need_ws comparison opt_ws intVal)? (need_ws intVal "x")?
+
+rerollModifier
+	= "reroll" opt_ws comparison opt_ws intVal need_ws intVal "x"
+	/ "reroll" need_ws intVal need_ws intVal "x"
+	/ "reroll" opt_ws comparison opt_ws intVal
+	/ "reroll" need_ws intVal "x"
+	/ "reroll" need_ws intVal
+	/ "reroll"
+
+comparison "comparison operator"
+	= ">="
+	/ "<="
+	/ "!="
+	/ [>=<]
+
+parenExpress
+	= roundIndicator? rawParens
+
+rawParens
+	= "(" opt_ws mathSeq opt_ws ")"
+
+intVal "integer or rounded expression"
+	= roundIndicator? variable
+	/ roundIndicator rawParens
+	/ intLiteral
+
+roundIndicator
+	= [cCfFrR]
+
+variable
+	= "[" [^\[\]]+ "]"
+
+intLiteral
+	= [-]? [0-9]+
+
+opt_ws "whitespace"
+	= [\n\r\t ]*
+
+need_ws "required whitespace"
+	= [\n\r\t ]+
+
+//// old implemention
+/*
 start
 	= ws r:dicerolls ws { return r; }
 
 dicerolls
-	//= head:multiplicationSeq op:additionOp tail:additionSeq { return {'op':op, args: [v1, v2] }; }
+	//= head:multiplicationSeq op:additionOp tail:additionSeq { return opAST(op, [v1, v2]) }
 	/// out:additionSeq { return out; }
 	= out:additionSeq { return out; }
 	/ out:parenExpress { return out; }
 
 parenExpress
-	= "(" ws rolls:dicerolls ws ")" { return {'op':'paren_express', args: [rolls]} }
+	= "(" ws rolls:dicerolls ws ")" { return parenAST(rolls) }
 
 multiplicationOp
 	= ws "*" ws { return '*'; }
@@ -28,6 +124,7 @@ multiplicationSeq
 
 multHead
 	= diceroll
+	/ intval
 	/ parenExpress
 
 additionSeq
@@ -47,28 +144,41 @@ additionOp
 	/ ws "-" ws { return "-"; }
 
 diceroll
-	= x:intval mode:rollmode mm:maybe_minmax { return {'op':mode.toLowerCase(), 'args':[x, mm]} }
-	/ mode:rollmode mm:maybe_minmax { return {'op':mode.toLowerCase(), 'args':[{'op':'static', 'value':1}, mm]}; }
-	/ mm:minmax { return { 'op':'d', 'args':[ {'op':'static', 'value':1}, mm]}; }
-	/ x:intval { return x; }
+	= d:diceform ws "{" ws mods:modifiers ws "}" { return diceRollAST(d, mods) }
+	/ d:diceform ":" mods:simplifiedMods { return dicerollAST(d, mods) }
+
+diceform
+	= x:intval mode:rollmode mm:maybe_minmax { return diceFormObj(x, mode.toLowerCase(), mm); }
+	/ mode:rollmode mm:maybe_minmax { return diceFormObj(staticAST(1), mode.toLowerCase(), mm); }
+	/ mm:minmax { return diceFormObj(staticAST(1), 'd', mm); }
 
 rollmode
-	= "d"
-	/ "D"
-	/ "w"
-	/ "W"
+	= [dw]i
 
 maybe_minmax
 	= mm:minmax { return mm; }
-	/ max:intval { return {'op':'random', 'args':[{'op':'static', 'args':[], 'value':1}, max]}; }
+	/ max:intval { return minMaxObj(staticAST(1), max); }
 
 minmax
-	= min:intval ".." max:intval { return {'op':'random', 'args':[min, max]}; }
+	= min:intval ".." max:intval { return minMaxObj(min, max); }
+
+simplifiedMods
+	= rr:simpleReroll { return rr; }
+	/ dk:simpleDropKeep { return dk; }
+
+simpleReroll
+	= [r]i [r]i { return {'op':'modlist', 'args':[{'op':'modifier','type':'reroll', 'args':['min',1]}]}}
+
+simpleDropKeep
+	= act:[dk]i? direction:[hl]i? howMany:intval? { return {'op':'modlist', 'args':[{'op':'modifier','type':}]}}
 
 ws
-	= [ ]*
+	= [\n\r\t ]*
 
-intval
+ws1 "needed whitespace"
+	= [\n\r\t ]+
+
+intval "an integer literal, variable name (rounded or not), or rounded parenthesis"
 	= i:integer {
 		return {'op': 'static', value: i};
 	}
@@ -96,3 +206,4 @@ variable
 integer "integer"
 	= digits:[0-9]+ { return parseInt(digits.join(""), 10); }
 	/ "-" digits:[0-9]+ { return parseInt(digits.join(""), 10) * -1; }
+	*/

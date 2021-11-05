@@ -125,7 +125,7 @@ function keepModifier(ctx){
 function keepDropModifier(ctx, mode){
 	let ws1 = ws();
 	let ws2 = ws();
-	let out = ws1 + mode + ws2;
+	let out = ws1 + mode + " " + ws2;
 	let keepWhich = randFromList(["highest", "lowest"]);
 	out = out + keepWhich;
 	ctx.length = ctx.length + out.length;
@@ -146,29 +146,45 @@ function dropModifier(ctx){
 function rerollModifier(ctx){
 	let ws1 = ws();
 	let out = ws1 + "reroll";
-	out = out + ws()
-	let rerollThreshold = randFromList(["", "<", ">", "="]);
-	out = out + rerollThreshold;
-	out = out + ws();
 	ctx.length = ctx.length + out.length;
-	let thresholdValueStr = limit(ctx, intVal, "");
-	if(thresholdValueStr.length === 0){
-		out = out + "1";
-		ctx.length = ctx.length + 1;
+
+	let rerollThresholdFunc = randFromList([comparison, emptyStr]);
+	let rerollThreshold = rerollThresholdFunc(ctx);
+	out = out + rerollThreshold;
+	ctx.length = ctx.length + rerollThreshold.length;
+
+	let rerollLimitFunc = randFromList([intVal, emptyStr]);
+	let rerollLimit = rerollLimitFunc(ctx);
+	if(rerollLimit.length !== 0){
+		rerollLimit = " " + ws() + rerollLimit + "x";
 	}
-	out = out + " ";
-	let ws3 = ws();
-	ctx.length = ctx.length + ws3.length + 1;
-	let howOftenReroll = limit(ctx, intVal, "");
-	if(howOftenReroll.length == 0){
-		out = out + "1";
-		ctx.length = ctx.length + 1;
-	}
-	ctx.length = ctx.length + 1;
-	out = out + "x";
+	out = out + rerollLimit;
+	ctx.length = ctx.length + rerollLimit.length;
+
 	let ws4 = ws();
 	ctx.length = ctx.length + ws4.length;
 	out = out + ws4;
+	return out;
+}
+
+function comparison(ctx){
+	let out = ws();
+	ctx.length = ctx.length + out.length;
+	let compare = randFromList(["=", "!=", "<", ">", "<=", ">="]);
+	out = out + compare;
+	ctx.length = ctx.length + compare.length;
+	let ws2 = ws();
+	out = out + ws2;
+	ctx.length = ctx.length + ws2.length;
+	let intStr = limit(ctx, intVal, "");
+	if(intStr.length === 0){
+		intStr = "1";
+	}
+	ctx.length = ctx.length + intStr.length;
+	out = out + intStr
+	let ws3 = ws();
+	ctx.length = ctx.length + ws3.length;
+	out = out + ws3;
 	return out;
 }
 
@@ -191,7 +207,7 @@ function explodeModifier(ctx){
 }
 
 function explodeModifierCondition(ctx){
-	let condition = randFromList(["equal", "=", "!=", ">", ">=", "<", "<="]);
+	let condition = randFromList(["=", "!=", ">", ">=", "<", "<="]);
 	let ws1 = ws();
 	let out = condition + " " + ws1;
 	ctx.length = ctx.length + out.length;
@@ -313,7 +329,8 @@ function mathSeq(ctx){
 function start(){
 	let ctx = { depth: 0, length: 0, subs: 0};
 	let func = randFromList([intVal, roll, mathSeq, rawParens, roundedParen]);
-	return limit(ctx, func, "1");
+	let out = limit(ctx, func, "1");
+	return out;
 }
 
 exports.MAX_LENGTH = MAX_LENGTH;

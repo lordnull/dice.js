@@ -30,16 +30,15 @@ off.
 For use with node and installed with npm, you should only need to do the usual
 `var dice = require("./src/dice.js");`.
 
-If you have peg.js installed and available in your path, you can build
-the dice.parse.js file from it using `make peg`.
-
 Testing
 =======
 
-Tests are run using karma and jasmine. To do a single run test, use
-`make test`. To Run only browser tests, use `make browser_test`. To
+Tests are run using jasmine. To do a single test run for both the browser, use
+`make test`. To run only browser tests, use `make browser_test`. To
 run only the node tests, use `make node_test`. To leave a browser used
-for testing running for debugging purposes, use `make dbgtest`.
+for testing running for debugging purposes, use `make dbgtest`. Jasmine will
+tell you what page you need to browse to the test to actually run; but by
+default it's `http://localhost:8888`.
 
 Usage
 =====
@@ -57,19 +56,8 @@ achieved (thus why it is coerced into a primitive when logged above).
 The easiest way to analyze it is to have dice.js stringify it.
 
 The `diceString` uses a simple-ish syntax to specify what dice to roll, how
-to roll them, and the sum of the rolls:
-
-    diceRoll [operation diceRoll [...]]
-        operation: "+" | "-" | "*" | "/"
-        diceRoll: maybeInteger | [numDice] rollMode [min ".."] max
-            numDice: maybeInteger
-            rollMode: "d" | "w"
-            min: maybeInteger
-            max: maybeInteger
-            maybeInteger: integer | "[" propertyInScope "]"
-
-If that was confusing, that's okay, it makes much more sense after some
-examples.
+to roll them, and the sum of the rolls. While each individual part is simple,
+presenting it all at once can be overwhelming.
 
 Basic Rolls
 -----------
@@ -79,10 +67,14 @@ familiar:
 
     1d20 + 10
 
-That is a valid statement for dice.roll. You could simplify it a bit, in
-fact:
+That is a valid statement for a dice roll. The 'd' seperator is case insensitve:
+
+    1D20 + 10
+
+You could simplify it a bit, in fact:
 
     d20 + 10
+    D20 + 10
 
 There are times when you would need to roll multiple sets of dice:
 
@@ -109,7 +101,7 @@ minimum and maximum too, and in any order.
     
 You may have noticed that in the Fudge examples, the -1 and 1 are reversed.
 This is because the numbers on either side of the `..` are not a minimum
-and maximum, but a range. `-1..1` and `1..1` represent the same range. The
+and maximum, but a range. `-1..1` and `1..-1` represent the same range. The
 DnD example of the minimum attack could be expressed as:
 
     3d6..2
@@ -118,12 +110,15 @@ DnD example of the minimum attack could be expressed as:
 If you have played Star Wars d6, using a wild die is supported as well:
 
     3d6 + 1w6
+    3D6 + 1W6
 
 Using `w` instead of `d` means that die will be re-rolled and added to the
 result if it comes up as a the value to the right of the `..`. All the
-repeat rolls will show up as a single roll in the `rolls` property of the returned object.
+repeat rolls will show up as a single roll in the `rolls` property of the
+returned object.
 
-Note that the `xwn..m` syntax will always reroll when the result is `m`. This means that `3w2..6` is *not* the same as `3w6..2`. The former explodes the
+Note that the `xwn..m` syntax will always reroll when the result is `m`. This
+means that `3w2..6` is *not* the same as `3w6..2`. The former explodes the
 dice on a 6, while the latter explodes it on a 2.
 
 Scopes
@@ -151,7 +146,7 @@ Using the rules above, we can write a roll for a strength check:
 
     var roll = "d20 - 2";
 
-Now if our character puts in effort to increate the stat:
+Now if our character puts in effort to increase the stat:
 
     character.Strength++;
 
@@ -178,26 +173,17 @@ The replacement works anywhere an integer can go:
     3d2..[Weapon Die]
     [Character Level]d6
 
-If the scope contains values that are not integers, the syntax allows you
-to define how to handle that. Preface the variable box with `f` for round
+Note how we allow spaces in the name. The only characters explicitly disallowed
+are `[` and `]`.
+
+If the scope contains values that are not integers, like 1.5, You can use one of
+the built-in rounding funtions. Preface the variable box with `f` for round
 down (floor), `c` for round up (ceiling), or `r` for round to nearest.
 
     1d20 + f[Half Level]
 
 If the Half level was used without the `f` tag, an exception would be
 thrown.
-
-Subexpressions are supported using parenthesis, along with rounding on
-those expressions when used with `f`, `c`, and `r`. This allows
-subexpressions to be used any place an integer is required as well. For
-example, the half level above could be re-written without needing an
-explicit half level on the scope.
-
-    1d20 + f([Level] / 2)
-
-Or if you need to roll half your level in d6's:
-
-    c([Level] / 2)d6
 
 For more advanced usage, scopes can be nested.
 
@@ -212,6 +198,148 @@ For more advanced usage, scopes can be nested.
     };
     var result = dice.roll("[takes.priority] + [nested.value]", scope);
     result == 10; // because we look for an exact match of property name first
+
+Subexpressions
+--------------
+
+The Usual `+`, `-`, `*` and `/` are supported, with order of operations being
+observed: `*` and `/` done in order, then `+` and `-`.
+
+If this is not desired, or you want to do some math where an integer would go,
+you can use a parenthesis expression. As with scopes, we can prepend them with
+the rounding flags `f`, `c`, and `r`. The rounding is required when using a
+subexpression where an integer is expected.
+
+For example, the half level from the scope example above could be re-written
+without needing an explicit half level on the scope.
+
+    1d20 + f([Level] / 2)
+
+Or if you need to roll half your level in d6's:
+
+    c([Level] / 2)d6
+
+Roll Modifiers
+--------------
+
+Many DnD players are familiar with the "4 dice, drop lowest" method of rolling
+character attributes. While this can be achieved in javascript with some code
+and inspecting the results, the goal is to allow many rolls to be written
+without needing to know how to code. This is where roll modifiers come in.
+
+After any dice roll expression, you can add some rules to modify the result.
+
+    4d6{ drop lowest }
+    4d6{ keep highest 3 }
+    3d6{ reroll } // 3 dice, reroll 1's once.
+    3d6{ reroll <3 } // 3 dice, reroll 1's and 2's once.
+    3d6{ reroll 2x } // 3 dice, reroll 1's up to 2 times.
+    3d6{ reroll <3 2x } // 3 dice, reroll 1's and 2's up to 2 times.
+
+Multiple modifiers can be used. Seperate them with a `;`. They modifier the
+result of the rolls in the order by are listed.
+
+    4d6{ reroll ; drop lowest } // 4 dice, reroll 1's once, then drop lowest
+
+Some modifiers also have a short form. When using the short form, only one
+modifier can be used.
+
+    4d6:dl // same as 4d6{ drop lowest }
+    4d6:k3 // same as 4d6{ keep highest 3 }
+
+There are 4 modifiers: keep, drop, reroll, and explode. Each as a short form of
+some kind.
+
+### Keep
+
+Keep a certain number of the highest or lowest of a roll.
+
+    'keep' which_type how_many
+
+* `which_type`: either "highest" or "lowest". If omitted, this defaults to
+"highest".
+* `how_many`: How many dice to keep. If omitted, defaults to 1.
+
+This also has several short forms, which are case-insensitive. Any of the short
+forms can have a number appended (no space before the number) to change it from
+a single die to that number. As usual, you can put a scope or rounded value in.
+
+* `:k`: Keep the single highest roll.
+* `:h`: Keep the single highest roll.
+* `:kh`: Keep the single highest roll.
+* `:kl`: Keep the single lowest roll.
+
+### Drop
+
+The inverse of keep, drop a number of the highest or lowest dice.
+
+    'drop' which_type how_many
+
+* `which_type`: either "highest" or "lowest". If omitted, this defaults to
+"lowest".
+* `how_many`: How many dice to drop. If omitted, defaults to 1.
+
+This also has several short forms, which are case-insensitive. Any of the short
+forms can have a number appended (no space before the number) to change it from
+a single die to that number. As usual, you can put a scope or rounded value in.
+
+* `:d`: Drop the single lowest roll.
+* `:l`: Drop the single lowest roll.
+* `:dh`: Drop the single highest roll.
+* `:dl`: Drop the single lowest roll.
+
+### Reroll
+
+Given some condition, reroll dice a limited number of times. Note that unlimited
+re-rolling is not supported. If you need to always re-roll ones on a six-sided
+dice, just define `d2..6`.
+
+    'reroll' condition limit
+
+A condition is a number (the comparitor) optionally preceeded by any one of the
+following:
+* `=`: the roll is exactly the comparitor.
+* `!=`: the roll is anything _but_ the comparitor.
+* `>`: the roll is greater than the comparitor.
+* `>=`: the roll is greater than or equal to the comparitor.
+* `<`: the roll is less than the comparitor.
+* `<=`: the roll is less than or equal to the comparitor.
+
+The condition is optional. If left out, it defaults to equal to the left value
+of a dice roll's range.
+
+The limit is a number followed by the letter 'x'. The 'x' is there so we know
+it's always a limit. If the limit is omitted, it defaults to `1`.
+
+Reroll has a short form. `:rr` is the same as `{reroll}`.
+
+### Explode
+
+Exploding dice a rolled again when certain number is rolled, with the new result
+being added to the result set (and thus total). When more than one die is rolled,
+any that meet the condition explode, and will continue until either the condition
+is not met, or the limit is met.
+
+The long form is similar to reroll.
+
+A condition is a number (the comparitor) optionally preceeded by any one of the
+following:
+* `=`: the roll is exactly the comparitor.
+* `!=`: the roll is anything _but_ the comparitor.
+* `>`: the roll is greater than the comparitor.
+* `>=`: the roll is greater than or equal to the comparitor.
+* `<`: the roll is less than the comparitor.
+* `<=`: the roll is less than or equal to the comparitor.
+
+The condition is optional. If left out, it defaults to equal to the right value
+of a dice roll's range.
+
+The limit is a number followed by the letter 'x'. The 'x' is there so we know
+it's the limit. If the limit is omitted, it defaults to 10000.
+
+There is a short form. Exploding dice were explained in the basic rolls section
+as using `w` instead of `d`; that's the short form. It is the same as using
+`{ explode =[max] }` where `[max]` is the right side of the dice range.
 
 Statistics
 ==========
@@ -233,6 +361,12 @@ Using `dice.statistics(rollString, scope, samples)` returns an object:
                                        // been generated.
     }
 ```
+
+When using exploding dice, the min_possible and max_possible do not have a
+practical meaning when the eplosion has no limit. Thus, explosions are omitted
+from analysis. Rerolls have limits, thus can statistically have the condition
+occur, and so also are ommited from the results. Keep and Drop, because they
+actually change the result set in a deterministic way, are used.
 
 Contributing
 ============
