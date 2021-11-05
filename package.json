@@ -8,10 +8,11 @@
   },
   "devDependencies": {
     "browserify": "^17.0.0",
+    "jasmine": "^3.10.0",
     "jasmine-browser-runner": "^0.9.0",
     "jasmine-core": "^3.10.1",
     "jasmine-node": "^3.0.0",
-    "pegjs": "^0.10.0"
+    "peggy": "^1.2.0"
   },
   "scripts": {
     "test": "make test"

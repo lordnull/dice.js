@@ -2,12 +2,12 @@ TEST_BROWSER?=chrome
 
 all: build/dice.js
 
-build/.deps-done: Makefile
+build/.deps-done: package.json package-lock.json
 	mkdir -p build
 	npm install -y && touch build/.deps-done
 
-src/parser.js: build/.deps-done src/dice.peg
-	npx pegjs -o src/parser.js src/dice.peg
+src/parser.js: build/.deps-done src/dice.peg src/grammerAST.js
+	npx peggy -o src/parser.js src/dice.peg
 
 build/dice.js: build/.deps-done src/parser.js src/evaluate.js
 	mkdir -p build
@@ -22,7 +22,7 @@ dbgtest: build/.deps-done build/dice.js tests/dice.browser.spec.js
 	npx jasmine-browser-runner serve --config=jasmine-browser.json
 
 node_test: build/.deps-done build/dice.js
-	npx jasmine --config=jasmine.json
+	npx jasmine --reporter="../../../tests/reporter.js" --config=jasmine.json
 
 tests/dice.browser.spec.js: tests/dice.spec.js tests/rand_roll_gen.js build/dice.js
 	npx browserify -e tests/dice.spec.js > tests/dice.browser.spec.js -s dice.spec
