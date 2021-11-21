@@ -1,12 +1,15 @@
 var dice = {
 	parse: require('./parser').parse,
 	eval: require('./evaluate').eval,
+	stringify: require('./stringify').stringify,
 	ops: require('./evaluate').ops,
-	version: require('../package').version
+	version: require('../package').version,
+	grammer: require('./grammerAST')
 };
 
 function roll(str, scope){
 	var parsed = dice.parse(str);
+	console.log("parse completed");
 	var evaled = dice.eval(parsed, scope);
 	return evaled;
 };
@@ -128,64 +131,6 @@ function determine_min_max_possible(opObject, scope){
 		return determine_min_max_possible(opObject.args[0], scope);
 	}
 }
-
-function stringify_expression(evaled_op){
-	var sub = stringify(evaled_op.expression);
-	var prefix = evaled_op.op[0];
-	if(prefix === 'p'){
-		prefix = '';
-	}
-	
-	return prefix + "( " + sub + " )";
-};
-
-function stringify_op(evaled_op){
-	if(evaled_op.op === 'sum'){
-		return stringify_seq(evaled_op.addends);
-	}
-	if(evaled_op.op === 'mult'){
-		return stringify_seq(evaled_op.multiplicants);
-	}
-	var rs = stringify(evaled_op.rightSide);
-	var ls = stringify(evaled_op.leftSide);
-	return rs + ' ' + evaled_op.op + ' ' + ls;
-};
-
-function stringify_seq(sequence){
-	var allThings = [];
-	sequence.map(function(opRes){
-		var op = opRes[0];
-		var res = stringify(opRes[1]);
-		allThings.push(op);
-		allThings.push(res);
-	});
-	allThings.shift();
-	return allThings.join(" ");
-}
-
-function stringify_rolls(evaled_roll){
-	var minStr = evaled_roll.min > 1 ? evaled_roll.min + '..' : '';
-	var preamble = evaled_roll.x + evaled_roll.mode + minStr + evaled_roll.max + ':[';
-	return preamble + evaled_roll.rolls.join(', ') + ']';
-};
-
-function stringify(evaled){
-	if(evaled.expression){
-		return stringify_expression(evaled);
-	}
-
-	if(evaled.op){
-		return stringify_op(evaled);
-	}
-
-	if(evaled.rolls){
-		return stringify_rolls(evaled);
-	}
-
-	return evaled.toString();
-};
-
-dice.stringify = stringify;
 
 var k;
 for(k in dice){

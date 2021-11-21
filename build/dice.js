@@ -8,12 +8,14 @@ module.exports={
     "test": "tests"
   },
   "devDependencies": {
+    "@types/node": "^16.11.7",
     "browserify": "^17.0.0",
     "jasmine": "^3.10.0",
     "jasmine-browser-runner": "^0.9.0",
     "jasmine-core": "^3.10.1",
     "jasmine-node": "^3.0.0",
-    "peggy": "^1.2.0"
+    "peggy": "^1.2.0",
+    "typescript": "^4.4.4"
   },
   "scripts": {
     "test": "make test"
@@ -41,12 +43,15 @@ module.exports={
 var dice = {
 	parse: require('./parser').parse,
 	eval: require('./evaluate').eval,
+	stringify: require('./stringify').stringify,
 	ops: require('./evaluate').ops,
-	version: require('../package').version
+	version: require('../package').version,
+	grammer: require('./grammerAST')
 };
 
 function roll(str, scope){
 	var parsed = dice.parse(str);
+	console.log("parse completed");
 	var evaled = dice.eval(parsed, scope);
 	return evaled;
 };
@@ -169,532 +174,976 @@ function determine_min_max_possible(opObject, scope){
 	}
 }
 
-function stringify_expression(evaled_op){
-	var sub = stringify(evaled_op.expression);
-	var prefix = evaled_op.op[0];
-	if(prefix === 'p'){
-		prefix = '';
-	}
-	
-	return prefix + "( " + sub + " )";
-};
-
-function stringify_op(evaled_op){
-	if(evaled_op.op === 'sum'){
-		return stringify_seq(evaled_op.addends);
-	}
-	if(evaled_op.op === 'mult'){
-		return stringify_seq(evaled_op.multiplicants);
-	}
-	var rs = stringify(evaled_op.rightSide);
-	var ls = stringify(evaled_op.leftSide);
-	return rs + ' ' + evaled_op.op + ' ' + ls;
-};
-
-function stringify_seq(sequence){
-	var allThings = [];
-	sequence.map(function(opRes){
-		var op = opRes[0];
-		var res = stringify(opRes[1]);
-		allThings.push(op);
-		allThings.push(res);
-	});
-	allThings.shift();
-	return allThings.join(" ");
-}
-
-function stringify_rolls(evaled_roll){
-	var minStr = evaled_roll.min > 1 ? evaled_roll.min + '..' : '';
-	var preamble = evaled_roll.x + evaled_roll.mode + minStr + evaled_roll.max + ':[';
-	return preamble + evaled_roll.rolls.join(', ') + ']';
-};
-
-function stringify(evaled){
-	if(evaled.expression){
-		return stringify_expression(evaled);
-	}
-
-	if(evaled.op){
-		return stringify_op(evaled);
-	}
-
-	if(evaled.rolls){
-		return stringify_rolls(evaled);
-	}
-
-	return evaled.toString();
-};
-
-dice.stringify = stringify;
-
 var k;
 for(k in dice){
     exports[k] = dice[k];
 }
 
 
-},{"../package":1,"./evaluate":3,"./parser":5}],3:[function(require,module,exports){
-
+},{"../package":1,"./evaluate":3,"./grammerAST":4,"./parser":5,"./stringify":6}],3:[function(require,module,exports){
+"use strict";
+var __classPrivateFieldSet = (this && this.__classPrivateFieldSet) || function (receiver, state, value, kind, f) {
+    if (kind === "m") throw new TypeError("Private method is not writable");
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
+    return (kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value)), value;
+};
+var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (receiver, state, kind, f) {
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a getter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
+    return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
+};
+var _LookupR_lookupName, _DiceRollR_min, _DiceRollR_max, _DiceRollR_x, _DiceRollR_modifiers, _DiceRollR_rolls, _RollSetModifiersR_mods, _KeepDropModifier_action, _KeepDropModifier_direction, _KeepDropModifier_howMany, _RerollModifier_comparisonMode, _RerollModifier_comparisonValue, _RerollModifier_limit, _ExplodeModifier_comparisonMode, _ExplodeModifier_comparisonValue, _ExplodeModifier_limit, _RounderR_mode, _RounderR_thingRounded, _MathOpR_op, _MathOpR_opFunc, _MathOpR_operand, _MathOpListR_ops, _MathSeqR_ops, _MathSeqR_head, _ParensR_expression, _ResolveEngine_resolving, _ResolveEngine_allKeys, _ResolveEngine_keyItor, _ResolveEngine_currentKey, _ResolveEngine_keyMap, _ResolveEngine_scope, _ResolveEngine_resolved;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ParensR = exports.MathSeqR = exports.MathOpListR = exports.MathOpR = exports.RounderR = exports.ExplodeModifier = exports.RerollModifier = exports.KeepDropModifier = exports.RollSetModifiersR = exports.DiceRollR = exports.LookupR = exports.StaticR = exports.Resolver = void 0;
 let grammer = require("./grammerAST");
-
-/*function makeSeq(endIndex){
-	var seq = [];
-	seq[endIndex] = true;
-	for(var i = 0; i < seq.length; i++){
-		seq[i] = true;
-	}
-	return seq;
-};*/
-
-// got an ast.
-// keys to resolve, and the actual constructor.
-// resolving ast; keys done; keys left.
-// foreach keys left:
-// get key value.
-// if 'resolveable':
-//     add new resolving to stack,
-//     resolveing ast; keys done = []; keys left = resolvalble.keys
-//     continue
-// else
-//     move key to keys done w/ value
-// end
-// if keys left === []
-//     resolved = new resolveable w/ keys
-//     pop stack
-//     move top of keys left keys to done w/ value.
-// end
-
+class Resolver extends Number {
+    constructor(n, ast) {
+        super(n);
+        this.ast = ast;
+    }
+}
+exports.Resolver = Resolver;
+class StaticR extends Resolver {
+    constructor(n) {
+        super(n, new grammer.Static(n));
+    }
+}
+exports.StaticR = StaticR;
+//type ObjectActual = Record<string, number | string | ObjectActual >;
+class LookupR extends Resolver {
+    constructor(name, scope) {
+        super(LookupR.deepSeek(name, scope), new grammer.Lookup(name));
+        _LookupR_lookupName.set(this, void 0);
+        __classPrivateFieldSet(this, _LookupR_lookupName, name, "f");
+    }
+    static deepSeek(path, object) {
+        if (object.hasOwnProperty(path)) {
+            return object[path];
+        }
+        let split = path.split('.');
+        if (split[0] === path) {
+            return;
+        }
+        let reduceRes = split.reduce((acc, elem) => {
+            if (acc === undefined) {
+                return;
+            }
+            let nextAcc = acc[elem];
+            if (typeof nextAcc !== "object") {
+                return;
+            }
+            return nextAcc;
+        }, object);
+        if (reduceRes !== undefined) {
+            if (typeof reduceRes === "number") {
+                return reduceRes;
+            }
+        }
+        return undefined;
+    }
+    ;
+}
+exports.LookupR = LookupR;
+_LookupR_lookupName = new WeakMap();
+// Ugh, just to work around a stupid ts limitation.
+// "nothing before super" they say, but I need to calculate stuff!
+let resultSetInstance = [];
+class DiceRollR extends Resolver {
+    constructor(x, min, max, modifiers, ast) {
+        super(DiceRollR.initVal(x, min, max, modifiers), ast);
+        _DiceRollR_min.set(this, void 0);
+        _DiceRollR_max.set(this, void 0);
+        _DiceRollR_x.set(this, void 0);
+        _DiceRollR_modifiers.set(this, void 0);
+        _DiceRollR_rolls.set(this, void 0);
+        __classPrivateFieldSet(this, _DiceRollR_x, x, "f");
+        __classPrivateFieldSet(this, _DiceRollR_min, min, "f");
+        __classPrivateFieldSet(this, _DiceRollR_max, max, "f");
+        __classPrivateFieldSet(this, _DiceRollR_modifiers, modifiers, "f");
+        __classPrivateFieldSet(this, _DiceRollR_rolls, resultSetInstance, "f");
+    }
+    get min() {
+        return __classPrivateFieldGet(this, _DiceRollR_min, "f");
+    }
+    get max() {
+        return __classPrivateFieldGet(this, _DiceRollR_max, "f");
+    }
+    get rolls() {
+        return __classPrivateFieldGet(this, _DiceRollR_rolls, "f");
+    }
+    get modifiers() {
+        return __classPrivateFieldGet(this, _DiceRollR_modifiers, "f");
+    }
+    get x() {
+        return __classPrivateFieldGet(this, _DiceRollR_x, "f");
+    }
+    static rand(min, max) {
+        let rawRandom = Math.random();
+        let diff = max.valueOf() - min.valueOf();
+        rawRandom = diff * rawRandom;
+        return Math.round(rawRandom + min.valueOf());
+        //let rndNumber = Math.round(rawRandom + min.valueOf());
+        /*rndNumber = new Number(rndNumber);
+        rndNumber.min = min;
+        rndNumber.max = max;
+        return rndNumber;*/
+    }
+    ;
+    static resultSet(rolls, min, max) {
+        let out = [];
+        for (let i = 0; i < rolls; i++) {
+            out.push(new Number(DiceRollR.rand(min, max)));
+        }
+        return out;
+    }
+    static applyModifiers(resultSet, modifiers, baseRoll) {
+        return modifiers.modify(resultSet, baseRoll);
+    }
+    static sum(resultSet) {
+        return resultSet.reduce((a, e) => a + e.valueOf(), 0);
+    }
+    static initVal(rolls, min, max, modifiers) {
+        let resultSet = DiceRollR.resultSet(rolls !== null && rolls !== void 0 ? rolls : 1, min !== null && min !== void 0 ? min : 1, max);
+        resultSet = DiceRollR.applyModifiers(resultSet, modifiers, { rolls, min, max });
+        resultSetInstance = resultSet;
+        let sum = DiceRollR.sum(resultSet);
+        return sum;
+    }
+}
+exports.DiceRollR = DiceRollR;
+_DiceRollR_min = new WeakMap(), _DiceRollR_max = new WeakMap(), _DiceRollR_x = new WeakMap(), _DiceRollR_modifiers = new WeakMap(), _DiceRollR_rolls = new WeakMap();
+class RollSetModifiersR extends Resolver {
+    constructor(mods, ast) {
+        super(NaN, ast);
+        _RollSetModifiersR_mods.set(this, []);
+        __classPrivateFieldSet(this, _RollSetModifiersR_mods, mods, "f");
+    }
+    modify(resultSet, baseDice) {
+        let reducer = (a, m) => {
+            return m.modify(a, baseDice);
+        };
+        return __classPrivateFieldGet(this, _RollSetModifiersR_mods, "f").reduce(reducer, resultSet);
+    }
+}
+exports.RollSetModifiersR = RollSetModifiersR;
+_RollSetModifiersR_mods = new WeakMap();
+class KeepDropModifier extends Resolver {
+    constructor(action, direction, howMany, ast) {
+        super(NaN, ast);
+        _KeepDropModifier_action.set(this, void 0);
+        _KeepDropModifier_direction.set(this, void 0);
+        _KeepDropModifier_howMany.set(this, void 0);
+        __classPrivateFieldSet(this, _KeepDropModifier_action, action !== null && action !== void 0 ? action : "keep", "f");
+        __classPrivateFieldSet(this, _KeepDropModifier_direction, direction !== null && direction !== void 0 ? direction : "highest", "f");
+        __classPrivateFieldSet(this, _KeepDropModifier_howMany, howMany !== null && howMany !== void 0 ? howMany : new StaticR(1), "f");
+    }
+    modify(resultSet) {
+        let sorted = resultSet.sort();
+        if (__classPrivateFieldGet(this, _KeepDropModifier_action, "f") === "keep" && __classPrivateFieldGet(this, _KeepDropModifier_direction, "f") === "highest") {
+            return sorted.slice(__classPrivateFieldGet(this, _KeepDropModifier_howMany, "f").valueOf() * -1);
+        }
+        if (__classPrivateFieldGet(this, _KeepDropModifier_action, "f") === "drop" && __classPrivateFieldGet(this, _KeepDropModifier_direction, "f") === "highest") {
+            return sorted.reverse().slice(__classPrivateFieldGet(this, _KeepDropModifier_howMany, "f").valueOf());
+        }
+        if (__classPrivateFieldGet(this, _KeepDropModifier_action, "f") === "keep" && __classPrivateFieldGet(this, _KeepDropModifier_direction, "f") === "lowest") {
+            return sorted.reverse().slice(__classPrivateFieldGet(this, _KeepDropModifier_howMany, "f").valueOf());
+        }
+        if (__classPrivateFieldGet(this, _KeepDropModifier_action, "f") === "drop" && __classPrivateFieldGet(this, _KeepDropModifier_direction, "f") === "lowest") {
+            return sorted.slice(__classPrivateFieldGet(this, _KeepDropModifier_howMany, "f").valueOf());
+        }
+        throw ('impossible, but no action or direction matches');
+    }
+}
+exports.KeepDropModifier = KeepDropModifier;
+_KeepDropModifier_action = new WeakMap(), _KeepDropModifier_direction = new WeakMap(), _KeepDropModifier_howMany = new WeakMap();
+let compareFuncs = {
+    '=': (base, result) => base === result,
+    '!=': (base, result) => base !== result,
+    '<': (base, result) => result < base,
+    '<=': (base, result) => result <= base,
+    '>': (base, result) => result > base,
+    '>=': (base, result) => result >= base,
+};
+function compareFunc(mode, arg1) {
+    let base = compareFuncs[mode];
+    return (arg2) => base(arg1, arg2);
+}
+class RerollModifier extends Resolver {
+    constructor(comparisonMode, comparisonValue, limit, ast) {
+        super(NaN, ast);
+        _RerollModifier_comparisonMode.set(this, void 0);
+        _RerollModifier_comparisonValue.set(this, void 0);
+        _RerollModifier_limit.set(this, void 0);
+        __classPrivateFieldSet(this, _RerollModifier_comparisonMode, comparisonMode !== null && comparisonMode !== void 0 ? comparisonMode : "=", "f");
+        __classPrivateFieldSet(this, _RerollModifier_comparisonValue, comparisonValue, "f");
+        __classPrivateFieldSet(this, _RerollModifier_limit, limit !== null && limit !== void 0 ? limit : new StaticR(1), "f");
+    }
+    modify(resultSet, baseRoll) {
+        var _a;
+        __classPrivateFieldSet(this, _RerollModifier_comparisonValue, (_a = __classPrivateFieldGet(this, _RerollModifier_comparisonValue, "f")) !== null && _a !== void 0 ? _a : baseRoll.min, "f");
+        let compare = compareFunc(__classPrivateFieldGet(this, _RerollModifier_comparisonMode, "f"), __classPrivateFieldGet(this, _RerollModifier_comparisonValue, "f"));
+        for (let i = __classPrivateFieldGet(this, _RerollModifier_limit, "f").valueOf(); i > 0; i--) {
+            let totalRolls = resultSet.length;
+            let keptRolls = resultSet.filter((e) => !compare(e));
+            let needRolls = totalRolls - keptRolls.length;
+            if (needRolls === 0) {
+                continue;
+            }
+            let emptyMods = new RollSetModifiersR([], new grammer.RollSetModifiers());
+            let diceAst = new grammer.DiceRoll(1, 1, 1, []);
+            let addToSet = new DiceRollR(needRolls, baseRoll.min, baseRoll.max, emptyMods, diceAst);
+            let concatSet = addToSet.rolls;
+            resultSet = keptRolls.concat(concatSet);
+        }
+        return resultSet;
+    }
+}
+exports.RerollModifier = RerollModifier;
+_RerollModifier_comparisonMode = new WeakMap(), _RerollModifier_comparisonValue = new WeakMap(), _RerollModifier_limit = new WeakMap();
+class ExplodeModifier extends Resolver {
+    constructor(comparisonMode, comparisonValue, limit, ast) {
+        super(NaN, ast);
+        _ExplodeModifier_comparisonMode.set(this, void 0);
+        _ExplodeModifier_comparisonValue.set(this, void 0);
+        _ExplodeModifier_limit.set(this, void 0);
+        __classPrivateFieldSet(this, _ExplodeModifier_comparisonMode, comparisonMode !== null && comparisonMode !== void 0 ? comparisonMode : "=", "f");
+        __classPrivateFieldSet(this, _ExplodeModifier_comparisonValue, comparisonValue, "f");
+        __classPrivateFieldSet(this, _ExplodeModifier_limit, limit !== null && limit !== void 0 ? limit : new StaticR(10000), "f");
+    }
+    modify(rolls, baseRoll) {
+        var _a;
+        let count = 0;
+        let compareValue = (_a = __classPrivateFieldGet(this, _ExplodeModifier_comparisonValue, "f")) !== null && _a !== void 0 ? _a : baseRoll.max;
+        let compare = compareFunc(__classPrivateFieldGet(this, _ExplodeModifier_comparisonMode, "f"), compareValue);
+        let exploding = rolls.filter((e) => compare(e));
+        let done = exploding.length === 0;
+        while (!done) {
+            let explodingCount = exploding.length;
+            let dice = new DiceRollR(explodingCount, baseRoll.min, baseRoll.max, new RollSetModifiersR([], new grammer.RollSetModifiers([])), new grammer.DiceRoll(1, 1, 1, []));
+            let exploded = dice.rolls;
+            rolls = rolls.concat(exploded);
+            exploding = exploded.filter((e) => compare(e));
+            if (__classPrivateFieldGet(this, _ExplodeModifier_limit, "f") !== null) {
+                count++;
+                if (__classPrivateFieldGet(this, _ExplodeModifier_limit, "f") === count) {
+                    done = true;
+                }
+            }
+            done = (done || (exploding.length === 0));
+        }
+        return rolls;
+    }
+}
+exports.ExplodeModifier = ExplodeModifier;
+_ExplodeModifier_comparisonMode = new WeakMap(), _ExplodeModifier_comparisonValue = new WeakMap(), _ExplodeModifier_limit = new WeakMap();
+class RounderR extends Resolver {
+    constructor(mode, thingToRound, ast) {
+        super((RounderR.modeToFunc(mode))(thingToRound.valueOf()), ast);
+        _RounderR_mode.set(this, void 0);
+        _RounderR_thingRounded.set(this, void 0);
+        __classPrivateFieldSet(this, _RounderR_mode, mode, "f");
+        __classPrivateFieldSet(this, _RounderR_thingRounded, thingToRound, "f");
+    }
+    get mode() {
+        return __classPrivateFieldGet(this, _RounderR_mode, "f");
+    }
+    get thingRounded() {
+        return __classPrivateFieldGet(this, _RounderR_thingRounded, "f");
+    }
+    static modeToFunc(mode) {
+        if (mode === "f") {
+            return Math.floor;
+        }
+        if (mode === "c") {
+            return Math.ceil;
+        }
+        if (mode === "r") {
+            return Math.round;
+        }
+        throw ("invalid round mode");
+    }
+}
+exports.RounderR = RounderR;
+_RounderR_mode = new WeakMap(), _RounderR_thingRounded = new WeakMap();
+class MathOpR extends Resolver {
+    constructor(op, operand, ast) {
+        super(NaN, ast);
+        _MathOpR_op.set(this, void 0);
+        _MathOpR_opFunc.set(this, void 0);
+        _MathOpR_operand.set(this, void 0);
+        __classPrivateFieldSet(this, _MathOpR_op, op, "f");
+        __classPrivateFieldSet(this, _MathOpR_operand, operand, "f");
+        if (op === "+") {
+            __classPrivateFieldSet(this, _MathOpR_opFunc, (a) => a + __classPrivateFieldGet(this, _MathOpR_operand, "f").valueOf(), "f");
+        }
+        else if (op === "-") {
+            __classPrivateFieldSet(this, _MathOpR_opFunc, (a) => a - __classPrivateFieldGet(this, _MathOpR_operand, "f").valueOf(), "f");
+        }
+        else if (op === "*") {
+            __classPrivateFieldSet(this, _MathOpR_opFunc, (a) => a * __classPrivateFieldGet(this, _MathOpR_operand, "f").valueOf(), "f");
+        }
+        else if (op === "/") {
+            __classPrivateFieldSet(this, _MathOpR_opFunc, (a) => a / __classPrivateFieldGet(this, _MathOpR_operand, "f").valueOf(), "f");
+        }
+        else {
+            throw "invalid math operation";
+        }
+    }
+    get op() {
+        return __classPrivateFieldGet(this, _MathOpR_op, "f");
+    }
+    get operand() {
+        return __classPrivateFieldGet(this, _MathOpR_operand, "f");
+    }
+    get commute() {
+        if (this.op === "-") {
+            return new MathOpR("+", new StaticR(__classPrivateFieldGet(this, _MathOpR_operand, "f").valueOf() * -1), this.ast);
+        }
+        else if (this.op === "/") {
+            return new MathOpR("*", new StaticR(1 / __classPrivateFieldGet(this, _MathOpR_operand, "f").valueOf()), this.ast);
+        }
+        else {
+            return new MathOpR(this.op, __classPrivateFieldGet(this, _MathOpR_operand, "f"), this.ast);
+        }
+    }
+    eval(acc) {
+        return __classPrivateFieldGet(this, _MathOpR_opFunc, "f").call(this, acc.valueOf());
+    }
+}
+exports.MathOpR = MathOpR;
+_MathOpR_op = new WeakMap(), _MathOpR_opFunc = new WeakMap(), _MathOpR_operand = new WeakMap();
+class MathOpListR extends Resolver {
+    constructor(ops, ast) {
+        super(NaN, ast);
+        _MathOpListR_ops.set(this, []);
+        __classPrivateFieldSet(this, _MathOpListR_ops, ops, "f");
+    }
+    get ops() {
+        return __classPrivateFieldGet(this, _MathOpListR_ops, "f");
+    }
+    eval(initial) {
+        let commutables = __classPrivateFieldGet(this, _MathOpListR_ops, "f").map((o) => o.commute);
+        let multReduce = (acc, op) => {
+            if (op.op === "*") {
+                acc.number = op.eval(acc.number);
+                return acc;
+            }
+            else {
+                acc.opList.push(new MathOpR(op.op, new StaticR(acc.number), this.ast));
+                acc.number = op.operand.valueOf();
+                return acc;
+            }
+        };
+        let initialMultiReduce = { number: initial.valueOf(), opList: [] };
+        let multReduced = commutables.reduce(multReduce, initialMultiReduce);
+        let addReduce = (acc, op) => {
+            return op.eval(acc);
+        };
+        let addReduced = multReduced.opList.reduce(addReduce, multReduced.number);
+        return addReduced;
+    }
+}
+exports.MathOpListR = MathOpListR;
+_MathOpListR_ops = new WeakMap();
+class MathSeqR extends Resolver {
+    constructor(head, ops, ast) {
+        super(ops.eval(head).valueOf(), ast);
+        _MathSeqR_ops.set(this, void 0);
+        _MathSeqR_head.set(this, void 0);
+        __classPrivateFieldSet(this, _MathSeqR_head, head, "f");
+        __classPrivateFieldSet(this, _MathSeqR_ops, ops, "f");
+    }
+    get head() {
+        return __classPrivateFieldGet(this, _MathSeqR_head, "f");
+    }
+    get ops() {
+        return __classPrivateFieldGet(this, _MathSeqR_ops, "f");
+    }
+}
+exports.MathSeqR = MathSeqR;
+_MathSeqR_ops = new WeakMap(), _MathSeqR_head = new WeakMap();
+class ParensR extends Resolver {
+    constructor(n, ast) {
+        super(n.valueOf(), ast);
+        _ParensR_expression.set(this, void 0);
+        __classPrivateFieldSet(this, _ParensR_expression, n, "f");
+    }
+    get expression() {
+        return __classPrivateFieldGet(this, _ParensR_expression, "f");
+    }
+}
+exports.ParensR = ParensR;
+_ParensR_expression = new WeakMap();
 class ResolveEngine {
-	#resolving;
-	#keysLeft;
-	#currentKey;
-	#done = false;
-	constructor(thing){
-		this.#resolving = thing;
-	}
-	get done(){
-		return this.#done;
-	}
-	get currentKey(){
-		return this.#currentKey;
-	}
-	get resolving(){
-		return this.#resolving;
-	}
-	start(){
-		this.#keysLeft = new Set(this.#resolving.children).keys();
-		this.#done = false;
-		return this.next();
-	}
-	setResolving(value){
-		this.#resolving[currentKey] = value;
-	}
-	next(){
-		let out = this.#keysLeft.next();
-		this.#currentKey = out.value;
-		this.#done = out.done;
-		out.value = this.#resolving[out.value];
-		return out;
-	}
+    constructor(thing, scope) {
+        _ResolveEngine_resolving.set(this, void 0);
+        _ResolveEngine_allKeys.set(this, []);
+        _ResolveEngine_keyItor.set(this, void 0);
+        _ResolveEngine_currentKey.set(this, void 0);
+        _ResolveEngine_keyMap.set(this, {});
+        //#done = false;
+        _ResolveEngine_scope.set(this, {});
+        _ResolveEngine_resolved.set(this, void 0);
+        __classPrivateFieldSet(this, _ResolveEngine_resolving, thing, "f");
+        __classPrivateFieldSet(this, _ResolveEngine_scope, scope, "f");
+        __classPrivateFieldSet(this, _ResolveEngine_allKeys, thing.children(), "f");
+        __classPrivateFieldSet(this, _ResolveEngine_keyItor, __classPrivateFieldGet(this, _ResolveEngine_allKeys, "f").values(), "f");
+        //this.#keysLeft = new Set(this.resolving.children).keys();
+        //this.#next();
+        __classPrivateFieldSet(this, _ResolveEngine_resolved, new StaticR(NaN), "f");
+    }
+    /*get done(){
+        return this.#done;
+    }*/
+    get currentKey() {
+        return __classPrivateFieldGet(this, _ResolveEngine_currentKey, "f");
+    }
+    get currentValue() {
+        if (__classPrivateFieldGet(this, _ResolveEngine_currentKey, "f") === undefined) {
+            return undefined;
+        }
+        return __classPrivateFieldGet(this, _ResolveEngine_resolving, "f")[__classPrivateFieldGet(this, _ResolveEngine_currentKey, "f")];
+    }
+    get resolving() {
+        return __classPrivateFieldGet(this, _ResolveEngine_resolving, "f");
+    }
+    /*get keysLeft(){
+        return this.#keysLeft;
+    }*/
+    get keyMap() {
+        return __classPrivateFieldGet(this, _ResolveEngine_keyMap, "f");
+    }
+    get resolved() {
+        return __classPrivateFieldGet(this, _ResolveEngine_resolved, "f");
+    }
+    get allKeys() {
+        return __classPrivateFieldGet(this, _ResolveEngine_allKeys, "f");
+    }
+    resetItor() {
+        __classPrivateFieldSet(this, _ResolveEngine_keyItor, __classPrivateFieldGet(this, _ResolveEngine_allKeys, "f").values(), "f");
+        __classPrivateFieldSet(this, _ResolveEngine_currentKey, undefined, "f");
+    }
+    next() {
+        let rawNext = __classPrivateFieldGet(this, _ResolveEngine_keyItor, "f").next();
+        __classPrivateFieldSet(this, _ResolveEngine_currentKey, rawNext.value, "f");
+        let outValue = {
+            key: this.currentKey,
+            value: this.currentValue,
+            done: rawNext.done
+        };
+        return outValue;
+    }
+    setKey(key, value) {
+        __classPrivateFieldGet(this, _ResolveEngine_keyMap, "f")[key] = value;
+    }
+    setCurrent(value) {
+        if (this.currentKey === undefined) {
+            throw ("No current key. You either never called next, called next too often, or called next but didn't check the 'done' property.");
+        }
+        else {
+            __classPrivateFieldGet(this, _ResolveEngine_keyMap, "f")[this.currentKey] = value;
+        }
+    }
+    resolve() {
+        __classPrivateFieldSet(this, _ResolveEngine_resolved, eval_factory(__classPrivateFieldGet(this, _ResolveEngine_resolving, "f"), __classPrivateFieldGet(this, _ResolveEngine_keyMap, "f"), __classPrivateFieldGet(this, _ResolveEngine_scope, "f")), "f");
+        return __classPrivateFieldGet(this, _ResolveEngine_resolved, "f");
+    }
 }
-
-function resolve_parsed(ast, scope){
-	let stepStack = [];
-	let currentStep = new ResolveEngine(ast);
-	currentStep.start();
-	let done = false;
-	while(! done){
-		let kid = currentStep.next();
-		if(kid === undefined){
-			if(stepStack.length === 0){
-				console.log('all done!');
-				done = true;
-			} else {
-				let popped = stepStack.pop();
-				let currentResolved = currentStep.resolving.resolve(scope);
-				popped.setResolving(currentResolved);
-				currentStep = popped;
-			}
-		} else {
-			stepStack.push(currentStep);
-			currentStep = new ResolveEngine(kid);
-			currentStep.start();
-		}
-	}
-	let readyAst = currentStep.resolving();
-	return readyAst.resolve(scope);
+_ResolveEngine_resolving = new WeakMap(), _ResolveEngine_allKeys = new WeakMap(), _ResolveEngine_keyItor = new WeakMap(), _ResolveEngine_currentKey = new WeakMap(), _ResolveEngine_keyMap = new WeakMap(), _ResolveEngine_scope = new WeakMap(), _ResolveEngine_resolved = new WeakMap();
+/*function eval_factory(ast : grammerTypes.Static, keyMap : Partial<Record<keyof grammerTypes.Static, Resolver>>, scope : object) : StaticR;
+function eval_factory(ast : grammerTypes.Lookup, keyMap : Partial<Record<keyof grammerTypes.Lookup, Resolver>>, scope : object) : LookupR;
+function eval_factory(ast : grammerTypes.RollSetModifiers, keyMap : Partial<Record<keyof grammerTypes.RollSetModifiers, Resolver>>, scope : object) : RollSetModifiersR;
+function eval_factory(ast : grammerTypes.KeepDrop, keyMap : Partial<Record<keyof grammerTypes.KeepDrop, Resolver>>, scope : object) : KeepDropModifier;
+function eval_factory(ast : grammerTypes.ReRoll, keyMap : Partial<Record<keyof grammerTypes.ReRoll, Resolver>>, scope : object) : RerollModifier;
+function eval_factory(ast : grammerTypes.Explode, keyMap : Partial<Record<keyof grammerTypes.Explode, Resolver>>, scope : object) : ExplodeModifier;
+function eval_factory(ast : grammerTypes.MathOp, keyMap : Partial<Record<keyof grammerTypes.MathOp, Resolver>>, scope : object) : MathOpR;
+function eval_factory(ast : grammerTypes.MathOpList, keyMap : Partial<Record<keyof grammerTypes.MathOpList, Resolver>>, scope : object) : MathOpListR;
+function eval_factory(ast : grammerTypes.MathSeq, keyMap : Partial<Record<keyof grammerTypes.MathSeq, Resolver>>, scope : object) : MathSeqR;
+function eval_factory(ast : grammerTypes.Rounder, keyMap : Partial<Record<keyof grammerTypes.Rounder, Resolver>>, scope : object) : RounderR;
+function eval_factory(ast : grammerTypes.Parens, keyMap : Partial<Record<keyof grammerTypes.Parens, Resolver>>, scope : object) : ParensR;
+function eval_factory(ast : grammerTypes.DiceRoll, keyMap : Partial<Record<keyof grammerTypes.DiceRoll, Resolver>>, scope : object) : DiceRollR;*/
+function eval_factory(ast, keyMap, scope) {
+    if (ast instanceof grammer.Static) {
+        return eval_static(ast.value);
+    }
+    if (ast instanceof grammer.Lookup) {
+        return eval_lookup(ast.lookupName, scope);
+    }
+    if (ast instanceof grammer.RollSetModifiers) {
+        return eval_rollsetmodifiers(ast, keyMap);
+    }
+    if (ast instanceof grammer.KeepDrop) {
+        return eval_keepdrop(ast, keyMap);
+    }
+    if (ast instanceof grammer.ReRoll) {
+        return eval_reroll(ast, keyMap);
+    }
+    if (ast instanceof grammer.Explode) {
+        return eval_explode(ast, keyMap);
+    }
+    if (ast instanceof grammer.MathOp) {
+        return eval_mathop(ast, keyMap);
+    }
+    if (ast instanceof grammer.MathOpList) {
+        return eval_mathoplist(ast, keyMap);
+    }
+    if (ast instanceof grammer.MathSeq) {
+        return eval_mathseq(ast, keyMap);
+    }
+    if (ast instanceof grammer.Rounder) {
+        return eval_rounder(ast, keyMap);
+    }
+    if (ast instanceof grammer.Parens) {
+        return eval_parens(ast, keyMap);
+    }
+    if (ast instanceof grammer.DiceRoll) {
+        return eval_diceroll(ast, keyMap);
+    }
+    throw ('invalid ast');
 }
-
-function resolve_ops(args){
-	args = args || [];
-	return args.map(resolve_op);
+function eval_static(n) {
+    return new StaticR(n);
+}
+function eval_lookup(name, scope) {
+    return new LookupR(name, scope);
+}
+function eval_rollsetmodifiers(ast, keyMap) {
+    let kidKeys = ast.children();
+    let reducer = (a, k) => {
+        if (keyMap[k] === undefined) {
+            return a;
+        }
+        else {
+            a.push(keyMap[k]);
+            return a;
+        }
+    };
+    let mods = kidKeys.reduce(reducer, []);
+    return new RollSetModifiersR(mods, ast);
+}
+function eval_keepdrop(ast, keyMap) {
+    let action = ast.action;
+    let direction = ast.direction;
+    let howMany = keyMap.howMany;
+    return new grammer.KeepDropModifier(action, direction, howMany, ast);
+}
+function eval_reroll(ast, keyMap) {
+    let comparison = ast.comparisonStr;
+    return new RerollModifier(comparison, keyMap.compareToVal, keyMap.limit, ast);
+}
+function eval_explode(ast, keyMap) {
+    return new ExplodeModifier(ast.comparisonStr, keyMap.compareToVal, keyMap.limit, ast);
+}
+function eval_mathop(ast, keyMap) {
+    if (keyMap.val === undefined) {
+        throw ('a mathop needs something to op on');
+    }
+    return new MathOpR(ast.op, keyMap.val, ast);
+}
+function eval_mathoplist(ast, keyMap) {
+    let kidKeys = ast.children();
+    let reducer = (a, index) => {
+        if (keyMap[index] === undefined) {
+            return a;
+        }
+        else {
+            a.push(keyMap[index]);
+            return a;
+        }
+    };
+    let ops = kidKeys.reduce(reducer, []);
+    return new MathOpListR(ops, ast);
+}
+function eval_mathseq(ast, keyMap) {
+    var _a;
+    if (keyMap.head === undefined) {
+        throw ("need a start up for mathseq");
+    }
+    let ops = (_a = keyMap.ops) !== null && _a !== void 0 ? _a : (new MathOpListR([], ast.ops));
+    return new MathSeqR(keyMap.head, ops, ast);
+}
+function eval_rounder(ast, keyMap) {
+    if (keyMap.thingToRound === undefined) {
+        throw ('cannot round/ceiling/floor undefined');
+    }
+    return new RounderR(ast.roundType, keyMap.thingToRound, ast);
+}
+function eval_parens(ast, keyMap) {
+    if (keyMap.expression === undefined) {
+        throw ('parens somehow ended up with undefined expression');
+    }
+    return new ParensR(keyMap.expression, ast);
+}
+function eval_diceroll(ast, keyMap) {
+    var _a, _b, _c;
+    if (keyMap.max === undefined) {
+        throw ('dice rolls _must_ have at least a max defined');
+    }
+    let mods = (_a = keyMap.modifiers) !== null && _a !== void 0 ? _a : new RollSetModifiersR([], new grammer.RollSetModifers([]));
+    return new DiceRollR((_b = keyMap.rolls) !== null && _b !== void 0 ? _b : new StaticR(1), (_c = keyMap.min) !== null && _c !== void 0 ? _c : new StaticR(1), keyMap.max, mods, ast);
+}
+function eval_default(key, thing) {
+    if (thing instanceof grammer.KeepDrop && key === "howMany") {
+        return new StaticR(1);
+    }
+    if (thing instanceof grammer.ReRoll && key === "limit") {
+        return new StaticR(1);
+    }
+    if (thing instanceof grammer.ReRoll && key === "compareToVal") {
+        // TODO may this never be called.
+        return new StaticR(1);
+    }
+    if (thing instanceof grammer.Explode && key === "limit") {
+        return new StaticR(10000);
+    }
+    if (thing instanceof grammer.Explode && key === "compareToVal") {
+        // TODO may this never be called.
+        return new StaticR(1);
+    }
+    if (thing instanceof grammer.DiceRoll && key === "rolls") {
+        return new StaticR(1);
+    }
+    if (thing instanceof grammer.DiceRoll && key === "min") {
+        return new StaticR(1);
+    }
+    if (thing instanceof grammer.DiceRoll && key === "modifiers") {
+        return new RollSetModifiersR([], new grammer.RollSetModifiers([]));
+    }
+    throw ("If you got here, somehow parsing allowed things that should not be null to be null");
+}
+function resolve_parsed(ast, scope) {
+    let stepStack = [];
+    let currentStep = new ResolveEngine(ast, scope);
+    let evaled;
+    let done = false;
+    let finalVal;
+    while (!done) {
+        let currentKeyVal = currentStep.next();
+        if (currentKeyVal.done) {
+            let resolvedVal = currentStep.resolve();
+            let popped = stepStack.pop();
+            if (popped === undefined) {
+                console.log('all done');
+                done = true;
+                finalVal = resolvedVal;
+            }
+            else {
+                popped.setCurrent(resolvedVal);
+                currentStep = popped;
+            }
+        }
+        else if (currentKeyVal.value === undefined) {
+            let resolvedVal = eval_default(currentKeyVal.key, currentStep.resolving);
+            currentStep.setCurrent(resolvedVal);
+        }
+        else {
+            stepStack.push(currentStep);
+            currentStep = new ResolveEngine(currentKeyVal.value, scope);
+        }
+    }
+    return finalVal;
+}
+exports.eval = function (parsed, scope) {
+    scope = scope !== null && scope !== void 0 ? scope : {};
+    return resolve_parsed(parsed, scope);
 };
-
-function resolve_op(opObj){
-	var subArgs = resolve_ops(opObj.args);
-	return ops[opObj.op].apply(opObj, subArgs);
-};
-
-
-exports.eval = function(parsed, scope){
-	scope = scope || {};
-	return resolve_parsed(parsed, scope);
-}
 
 },{"./grammerAST":4}],4:[function(require,module,exports){
+"use strict";
 // a common place for both evaludate.js and dice.peg to agree on a
 // representation of the concepts used in dice.js.
 // as well as some implementation details.
 // 90% of this work is an attempt to avoid exploding the call stack like the
 // old implementation could.
-// ...though that may have just been the parser...ugh.
-
-// A base helper type class to define how all ast parts should behave so the
-// evaluate can effectively walk the ast w/o blowing out a call stack.
-class AST {
-	// the keys of the object that are also ast's.
-	#children = [];
-	constructor(childKeys){
-		this.#children = childKeys;
-	}
-	get children(){
-		return this.#children;
-	}
-	// should only be called once all keys have also been resolved.
-	resolve(scope){
-		thrown('not implemented');
-	}
+var __classPrivateFieldSet = (this && this.__classPrivateFieldSet) || function (receiver, state, value, kind, f) {
+    if (kind === "m") throw new TypeError("Private method is not writable");
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
+    return (kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value)), value;
+};
+var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (receiver, state, kind, f) {
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a getter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
+    return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
+};
+var _Static_value, _Lookup_lookupName, _RollSetModifiers_mods, _RollSetModifiers_kidKeys, _KeepDrop_action, _KeepDrop_direction, _KeepDrop_howMany, _ReRoll_comparisonStr, _ReRoll_compareToVal, _ReRoll_limit, _Explode_comparisonStr, _Explode_compareToVal, _Explode_limit, _DiceRoll_rolls, _DiceRoll_min, _DiceRoll_max, _DiceRoll_modifiers, _Rounder_roundType, _Rounder_thingToRound, _MathOp_opStr, _MathOp_val, _MathOpList_ops, _MathOpList_kidKeys, _MathSeq_ops, _MathSeq_head, _Parens_expression;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Parens = exports.MathSeq = exports.MathOpList = exports.MathOp = exports.Rounder = exports.DiceRoll = exports.Explode = exports.ReRoll = exports.KeepDrop = exports.RollSetModifiers = exports.Lookup = exports.Static = void 0;
+class Static {
+    constructor(val) {
+        _Static_value.set(this, void 0);
+        __classPrivateFieldSet(this, _Static_value, val, "f");
+    }
+    get value() {
+        return __classPrivateFieldGet(this, _Static_value, "f");
+    }
+    children() {
+        return [];
+    }
 }
-
-class Static extends AST {
-	#value;
-	constructor(val){
-		super([]);
-		this.value = val;
-	}
-	resolve(){
-		return this.#value;
-	}
-}
-
-class Lookup extends AST {
-	#lookupName;
-	constructor(name){
-		super([]);
-		this.lookupName = name;
-	}
-	resolve(scope){
-		let out = scope[this.lookupName];
-		if(out !== undefined){
-			return out;
-		}
-		let split = this.lookupName.split('.');
-		if(split[0] === this.lookupName){
-			return out;
-		}
-		let reduceRes = split.reduce(function(acc, elem){
-			if(acc === undefined){
-				return;
-			}
-			return acc[elem];
-		}, scope);
-		return reduceRes;
-	}
-}
-
-class RollSetModifier extends AST {
-	constructor(keys){
-		super(keys);
-	}
-	modify(set, diceForm){
-		throw('not implemented');
-	}
-	resolve(){
-		return this;
-	}
-}
-
-class KeepHighest extends RollSetModifier{
-	howMany = 1;
-	constructor(howMany){
-		super(['howMany']);
-		this.howMany = howMany;
-	}
-	modify(resultSet){
-		let sorted = resultSet.sort();
-		return sorted.slice(howMany * -1);
-	}
-}
-
-class KeepLowest extends RollSetModifier{
-	howMany  = 1;
-	constructor(howMany){
-		super(['howMany']);
-		this.howMany = howMany;
-	}
-	modify(resultSet){
-		let sorted = resultSet.sort();
-		sorted = sorted.reverse();
-		return sorted.slice(howMany * -1);
-	}
-}
-
-class DropHighest extends RollSetModifier{
-	howMany = 1;
-	constructor(howMany){
-		super(['howMany']);
-		this.howMany = howMany;
-	}
-	modify(resultSet){
-		let sorted = resultSet.sort().reverse();
-		return sorted.slice(howMany);
-	}
-}
-
-class DropLowest extends RollSetModifier{
-	howMany = 1;
-	constructor(howMany){
-		super(['howMany']);
-		this.howMany = howMany;
-	}
-	modify(resultSet){
-		let sorted = resultSet.sort();
-		return sorted.slice(howMany);
-	}
-}
-
-
-class ReRoll extends RollSetModifier{
-	#comparison = "=";
-	min = 1;
-	max = 6;
-	compareToVal = 1;
-	limit = 10000;
-	constructor(comparisonStr, compareToVal, limit, min, max){
-		super(['compareToVal', 'min', 'max', 'limit']);
-		if(comparisonStr === undefined){
-			comparisonStr = "=";
-		}
-		if(compareToVal === undefined){
-			compareToVal = min;
-		}
-		if(limit === undefined){
-			limit = 10000;
-		}
-		this.#comparison = comparisonStr;
-		this.min = min;
-		this.max = max;
-		this.limit = limit;
-	}
-	modify(resultSet){
-		let comparisonFunc = curry(comparisons[this.#comparison], this.compareToVal);
-		for(let i = limit; i > 0; i--){
-			let totalRolls = resultSet.length;
-			let keptRolls = resultSet.filter((e) => ! comparisonFunc(e));
-			let needRolls = totalRolls.length - keptRolls.length;
-			if(needRolls === 0){
-				continue;
-			}
-			let diceForm = new DiceForm(needRolls, min, max, []);
-			let concatSet = diceform.roll();
-			resultSet = keptRolls.concat(concatSet.rolls);
-		}
-		return resultSet;
-	}
-}
-
-class Explode extends RollSetModifier{
-	#comparison = "="
-	min = 1;
-	max = 6;
-	compareToVal = 6;
-	limit = null;
-	constructor(comparisonStr, compareToVal, limit, min, max){
-		super(['min', 'max', 'limit', 'compareToVal']);
-		if(comparisonStr === undefined){
-			comparisonStr = "=";
-		}
-		if(compareToVal === undefined){
-			compareToVal = max;
-		}
-		let comparisonFunc = curry(comparisons[comparisonStr], compareToVal);
-		this.comparison = comparisonStr;
-		this.min = min;
-		this.max = max;
-		this.limit = limit;
-		this.compareToVal = compareToVal;
-	}
-	modify(resultSet){
-		let count = 0;
-		let comparisonFunc = curry(comparisons[this.#comparison], this.compareToVal);
-		let exploding = resultSet.filter((e) => comparisonFunc(e));
-		let done = exploding.length === 0;
-		while(!done){
-			let explodingCount = exploding.length;
-			let dice = new DiceForm(explodingCount, min, max, []);
-			let exploded = dice.roll().rolls;
-			resultSet = resultSet.concat(exploded);
-			exploding = exploded.filter((e) => comparisonFunc(e));
-			if(limit !== null){
-				count++;
-				if(limit === count){
-					done = true;
-				}
-			}
-			done = ( done || (exploding.length === 0));
-		}
-		return resultSet;
-	}
-}
-
-let comparisons = {
-	'=': (base, result) => base === result,
-	'!=': (base, result) => base !== result,
-	'<': (base, result) => result < bast,
-	'<=': (base, result) => result <= bast,
-	'>': (base, result) => result > bast,
-	'>=': (base, result) => result >= bast,
-}
-
-function curry(funcToCurry, arg1){
-	return (arg2) => funcToCurry(arg1, arg2);
-}
-
-class DiceForm extends AST {
-	rolls;
-	min;
-	max;
-	modifiers = [];
-	constructor(rolls, min, max, modifiers){
-		super(['min', 'max', 'rolls', 'modifiers']);
-		this.rolls = rolls;
-		this.min = min;
-		this.max = max;
-		this.modifiers = modifiers;
-	}
-	get range(){
-		return this.max - this.min;
-	}
-	resolve(){
-		let resultSet = [];
-		for(let i = 0; i < this.rolls; i++){
-			resultSet.push(rand(this.min, this.max));
-		}
-		let reducer = (set, modifier) => {
-			return modifier.modify(set, this);
-		};
-		resultSet = modifiers.reduce(reducer, resultSet);
-		let sum = new Number(resultSet.sum((a, e) => a + e, 0));
-		sum.rolls = resultSet;
-		sum.min = this.min;
-		sum.max = this.max;
-		sum.mode = 'd';
-		return sum;
-	}
-}
-
-class Rounder extends AST{
-	#roundType;
-	#roundFunc;
-	thingToRound;
-	constructor(type, thingToRound){
-		super(['thingToRound']);
-		this.roundType = type;
-		this.thingToRound = thingToRound;
-		if(type === "c"){
-			this.#roundFunc = Math.ceil;
-		} else if(type === "f"){
-			this.#roundFunc = Math.floor;
-		} else if(type === "r"){
-			this.#roundFunc = Math.round;
-		}
-	}
-	resolve(){
-		return this.#roundFunc(this.thingToRound);
-	}
-}
-
-class MathStep extends AST {
-	#op = function(a){ return 0 };
-	val = 0;
-	constructor(op, val){
-		super(['val']);
-		if(op === "+"){
-			this.#op = (a) => a + this.val;
-		} else if(op === "-"){
-			this.#op = (a) => a - this.val;
-		} else if(op === "*"){
-			this.#op = (a) => a * this.val;
-		} else if(op === "/"){
-			this.#op = (a) => a / this.val;
-		}
-		this.val = val;
-	}
-	eval(acc){
-		return this.#op(acc);
-	}
-	resolve(){
-		return this;
-	}
-}
-
-class MathOpList extends AST {
-	ops = [];
-	constructor(ops){
-		let kidKeys = [];
-		for(let i = 0; i < ops.length; i++){
-			kidKeys.push(i.toString());
-		}
-		super(kidKeys);
-	}
-	eval(initial){
-		return this.ops.reduce((a, m) => m.eval(a), initial);
-	}
-	resolve(){
-		return this;
-	}
-}
-
-class MathSeq extends AST {
-	ops = [];
-	head = 0;
-	constructor(head, ops){
-		super(['ops', 'head']);
-		this.head = head;
-		this.ops = ops;
-	}
-	resolve(){
-		return this.ops.eval(this.head);
-	}
-}
-
-class Parens extends AST {
-	expression;
-	constructor(express){
-		super(['expression']);
-		this.expression = express;
-	}
-	resolve(){
-		return this.expression;
-	}
-}
-
-exports.AST = AST;
 exports.Static = Static;
+_Static_value = new WeakMap();
+class Lookup {
+    constructor(name) {
+        _Lookup_lookupName.set(this, void 0);
+        __classPrivateFieldSet(this, _Lookup_lookupName, name, "f");
+    }
+    get lookupName() {
+        return __classPrivateFieldGet(this, _Lookup_lookupName, "f");
+    }
+    children() {
+        return [];
+    }
+}
 exports.Lookup = Lookup;
-exports.RollSetModifier = RollSetModifier;
-exports.KeepHighest = KeepHighest;
-exports.KeepLowest = KeepLowest;
-exports.DropHighest = DropHighest;
-exports.DropLowest = DropLowest;
+_Lookup_lookupName = new WeakMap();
+class RollSetModifiers {
+    constructor(mods) {
+        _RollSetModifiers_mods.set(this, []);
+        _RollSetModifiers_kidKeys.set(this, []);
+        let kidKeys = [];
+        for (let i = 0; i < mods.length; i++) {
+            kidKeys.push(i);
+        }
+        __classPrivateFieldSet(this, _RollSetModifiers_kidKeys, kidKeys, "f");
+        __classPrivateFieldSet(this, _RollSetModifiers_mods, mods, "f");
+        let self = this;
+        let kidPropsInit = {};
+        let kidProps = kidKeys.reduce((acc, index) => {
+            let property = { get: function () { return self.mods[index]; },
+                set: function (v) { self.mods[index] = v; }
+            };
+            acc[index] = property;
+            return acc;
+        }, kidPropsInit);
+        Object.defineProperties(this, kidProps);
+        let modIndexKvRefs = __classPrivateFieldGet(this, _RollSetModifiers_kidKeys, "f").map((i) => { return { key: i, val: __classPrivateFieldGet(this, _RollSetModifiers_mods, "f")[i] }; });
+    }
+    get mods() {
+        return __classPrivateFieldGet(this, _RollSetModifiers_mods, "f");
+    }
+    children() {
+        let mapper = (i) => {
+            return i;
+        };
+        let out = __classPrivateFieldGet(this, _RollSetModifiers_kidKeys, "f").map(mapper);
+        return out;
+    }
+}
+exports.RollSetModifiers = RollSetModifiers;
+_RollSetModifiers_mods = new WeakMap(), _RollSetModifiers_kidKeys = new WeakMap();
+class KeepDrop {
+    constructor(action, direction, howMany) {
+        _KeepDrop_action.set(this, "keep");
+        _KeepDrop_direction.set(this, "highest");
+        _KeepDrop_howMany.set(this, void 0);
+        __classPrivateFieldSet(this, _KeepDrop_action, action, "f");
+        __classPrivateFieldSet(this, _KeepDrop_direction, direction, "f");
+        __classPrivateFieldSet(this, _KeepDrop_howMany, howMany, "f");
+    }
+    get action() {
+        return __classPrivateFieldGet(this, _KeepDrop_action, "f");
+    }
+    get direction() {
+        return __classPrivateFieldGet(this, _KeepDrop_direction, "f");
+    }
+    get howMany() {
+        return __classPrivateFieldGet(this, _KeepDrop_howMany, "f");
+    }
+    children() {
+        return ['howMany'];
+    }
+}
+exports.KeepDrop = KeepDrop;
+_KeepDrop_action = new WeakMap(), _KeepDrop_direction = new WeakMap(), _KeepDrop_howMany = new WeakMap();
+class ReRoll {
+    constructor(comparisonStr, compareToVal, limit) {
+        _ReRoll_comparisonStr.set(this, void 0);
+        _ReRoll_compareToVal.set(this, void 0);
+        _ReRoll_limit.set(this, void 0);
+        __classPrivateFieldSet(this, _ReRoll_compareToVal, compareToVal, "f");
+        __classPrivateFieldGet(this, _ReRoll_comparisonStr, "f");
+        __classPrivateFieldSet(this, _ReRoll_limit, limit, "f");
+    }
+    get comparisonStr() {
+        return __classPrivateFieldGet(this, _ReRoll_comparisonStr, "f");
+    }
+    get compareToVal() {
+        return __classPrivateFieldGet(this, _ReRoll_compareToVal, "f");
+    }
+    get limit() {
+        return __classPrivateFieldGet(this, _ReRoll_limit, "f");
+    }
+    children() {
+        return ['limit', 'comparToVal'];
+    }
+}
 exports.ReRoll = ReRoll;
+_ReRoll_comparisonStr = new WeakMap(), _ReRoll_compareToVal = new WeakMap(), _ReRoll_limit = new WeakMap();
+class Explode {
+    constructor(comparisonStr, compareToVal, limit) {
+        _Explode_comparisonStr.set(this, void 0);
+        _Explode_compareToVal.set(this, void 0);
+        _Explode_limit.set(this, void 0);
+        __classPrivateFieldSet(this, _Explode_comparisonStr, comparisonStr, "f");
+        __classPrivateFieldSet(this, _Explode_limit, limit, "f");
+        __classPrivateFieldSet(this, _Explode_compareToVal, compareToVal, "f");
+    }
+    get comparisonStr() {
+        return __classPrivateFieldGet(this, _Explode_comparisonStr, "f");
+    }
+    get compareToVal() {
+        return __classPrivateFieldGet(this, _Explode_compareToVal, "f");
+    }
+    get limit() {
+        return __classPrivateFieldGet(this, _Explode_limit, "f");
+    }
+    children() {
+        return ['limit', 'compareToVal'];
+    }
+}
 exports.Explode = Explode;
-exports.DiceForm = DiceForm;
+_Explode_comparisonStr = new WeakMap(), _Explode_compareToVal = new WeakMap(), _Explode_limit = new WeakMap();
+class DiceRoll {
+    constructor(rolls, min, max, modifiers) {
+        _DiceRoll_rolls.set(this, void 0);
+        _DiceRoll_min.set(this, void 0);
+        _DiceRoll_max.set(this, void 0);
+        _DiceRoll_modifiers.set(this, void 0);
+        __classPrivateFieldSet(this, _DiceRoll_rolls, rolls, "f");
+        __classPrivateFieldSet(this, _DiceRoll_min, min, "f");
+        __classPrivateFieldSet(this, _DiceRoll_max, max, "f");
+        __classPrivateFieldGet(this, _DiceRoll_modifiers, "f");
+    }
+    get rolls() {
+        return __classPrivateFieldGet(this, _DiceRoll_rolls, "f");
+    }
+    get min() {
+        return __classPrivateFieldGet(this, _DiceRoll_min, "f");
+    }
+    get max() {
+        return __classPrivateFieldGet(this, _DiceRoll_max, "f");
+    }
+    get modifiers() {
+        return __classPrivateFieldGet(this, _DiceRoll_modifiers, "f");
+    }
+    children() {
+        let keys = ['rolls',
+            'min',
+            'max',
+            'modifiers'
+        ];
+        return keys;
+    }
+}
+exports.DiceRoll = DiceRoll;
+_DiceRoll_rolls = new WeakMap(), _DiceRoll_min = new WeakMap(), _DiceRoll_max = new WeakMap(), _DiceRoll_modifiers = new WeakMap();
+class Rounder {
+    constructor(type, thingToRound) {
+        _Rounder_roundType.set(this, "r");
+        _Rounder_thingToRound.set(this, void 0);
+        __classPrivateFieldSet(this, _Rounder_roundType, type, "f");
+        __classPrivateFieldSet(this, _Rounder_thingToRound, thingToRound, "f");
+    }
+    get roundType() {
+        return __classPrivateFieldGet(this, _Rounder_roundType, "f");
+    }
+    get thingToRound() {
+        return __classPrivateFieldGet(this, _Rounder_thingToRound, "f");
+    }
+    children() {
+        return ['thingToRound'];
+    }
+}
 exports.Rounder = Rounder;
-exports.MathStep = MathStep;
+_Rounder_roundType = new WeakMap(), _Rounder_thingToRound = new WeakMap();
+class MathOp {
+    constructor(op, val) {
+        _MathOp_opStr.set(this, "+");
+        _MathOp_val.set(this, void 0);
+        __classPrivateFieldSet(this, _MathOp_opStr, op, "f");
+        __classPrivateFieldSet(this, _MathOp_val, val, "f");
+    }
+    get op() {
+        return __classPrivateFieldGet(this, _MathOp_opStr, "f");
+    }
+    get val() {
+        return __classPrivateFieldGet(this, _MathOp_val, "f");
+    }
+    children() {
+        return ['val'];
+    }
+}
+exports.MathOp = MathOp;
+_MathOp_opStr = new WeakMap(), _MathOp_val = new WeakMap();
+class MathOpList {
+    constructor(ops) {
+        _MathOpList_ops.set(this, []);
+        _MathOpList_kidKeys.set(this, []);
+        let kidKeys = [];
+        for (let i = 0; i < ops.length; i++) {
+            kidKeys.push(i);
+        }
+        __classPrivateFieldSet(this, _MathOpList_ops, ops, "f");
+        __classPrivateFieldSet(this, _MathOpList_kidKeys, kidKeys, "f");
+        let self = this;
+        let kidProps = kidKeys.reduce((acc, index) => {
+            let newProp = {
+                get: function () { return __classPrivateFieldGet(self, _MathOpList_ops, "f")[index]; },
+                set: function (v) { __classPrivateFieldGet(self, _MathOpList_ops, "f")[index] = v; }
+            };
+            acc[index] = newProp;
+            return acc;
+        }, {});
+        Object.defineProperties(this, kidProps);
+    }
+    get ops() {
+        return __classPrivateFieldGet(this, _MathOpList_ops, "f");
+    }
+    children() {
+        let mapper = (i) => {
+            return i;
+        };
+        let out = __classPrivateFieldGet(this, _MathOpList_kidKeys, "f").map(mapper);
+        return out;
+    }
+}
 exports.MathOpList = MathOpList;
+_MathOpList_ops = new WeakMap(), _MathOpList_kidKeys = new WeakMap();
+class MathSeq {
+    constructor(head, ops) {
+        _MathSeq_ops.set(this, new MathOpList([]));
+        _MathSeq_head.set(this, void 0);
+        __classPrivateFieldSet(this, _MathSeq_head, head, "f");
+        __classPrivateFieldSet(this, _MathSeq_ops, ops, "f");
+    }
+    get head() {
+        return __classPrivateFieldGet(this, _MathSeq_head, "f");
+    }
+    get ops() {
+        return __classPrivateFieldGet(this, _MathSeq_ops, "f");
+    }
+    children() {
+        return ['head', 'ops'];
+    }
+}
 exports.MathSeq = MathSeq;
+_MathSeq_ops = new WeakMap(), _MathSeq_head = new WeakMap();
+class Parens {
+    constructor(express) {
+        _Parens_expression.set(this, void 0);
+        __classPrivateFieldSet(this, _Parens_expression, express, "f");
+    }
+    get expression() {
+        return __classPrivateFieldGet(this, _Parens_expression, "f");
+    }
+    children() {
+        return ['expression'];
+    }
+}
 exports.Parens = Parens;
+_Parens_expression = new WeakMap();
 
 },{}],5:[function(require,module,exports){
 // Generated by Peggy 1.2.0.
@@ -704,7 +1153,7 @@ exports.Parens = Parens;
 "use strict";
 
 
-let grammerAST = require("./grammerAST");
+let ast = require("./grammerAST");
 
 
 function peg$subclass(child, parent) {
@@ -949,6 +1398,145 @@ function peg$parse(input, options) {
   var peg$e36 = peg$classExpectation(["\n", "\r", "\t", " "], false, false);
   var peg$e37 = peg$otherExpectation("required whitespace");
 
+  var peg$f0 = function(exp, tail) {
+  		if(tail.length == 0){
+  			return exp;
+  		} else {
+  			let tailMapper = (arr) => {
+  				let op = arr[0];
+  				let tailExp = arr[1];
+  				return new ast.MathOp(op, tailExp);
+  			}
+  			let mappedTail = tail.map(tailMapper);
+  			let mathOpList = new ast.MathOpList(mappedTail);
+  			let mathSeq = new ast.MathSeq(exp, mathOpList);
+  			return mathSeq;
+  		}
+  	};
+  var peg$f1 = function(x, min, max, mods) {
+
+  		return new ast.DiceRoll(x ?? undefined, min, max, mods ?? undefined);
+  	};
+  var peg$f2 = function(x, max, mods) {
+  		return new ast.DiceRoll(x ?? undefined, undefined, max, mods ?? undefined);
+  	};
+  var peg$f3 = function(x, min, max, mods) {
+  		let wildMod = new ast.Explode("=", max, 10000, min, max);
+  		mods.unshift(wildMod);
+  		return new ast.DiceRoll(x ?? undefined, min, max, mods);
+  	};
+  var peg$f4 = function(x, max, maybeMods) {
+  		let mods = maybeMods ?? [];
+  		let wildMod = new ast.Explode("=", max, 10000, 1, max);
+  		mods.unshift(wildMod);
+  		return new ast.DiceRoll(x ?? undefined, undefined, max, mods);
+  	};
+  var peg$f5 = function(min, max) {
+  		return new ast.DiceRoll(undefined, min, max, []);
+  	};
+  var peg$f6 = function(s) {
+  		return new ast.RollSetModifiers([s]);
+  	};
+  var peg$f7 = function(kd, maybe_hl, maybe_howMany) {
+  		let defaultDiceType = "highest";
+  		let action = "keep";
+  		if(kd.toLower() === "d"){
+  			action = "drop"
+  			defaultDicetype = "lowest"
+  		}
+  		let diceType = defaultDiceType;
+  		if(maybe_hl){
+  			if(maybe_hl.toLower() === "l"){
+  				diceType = "lowest";
+  			} else {
+  				diceType = "highest";
+  			}
+  		}
+  		let howMany = maybe_howMany ?? undefined;
+  		return new ast.KeepDrop(action, diceType, howMany);
+  	};
+  var peg$f8 = function(dt, maybe_howMany) {
+  		let action = "keep";
+  		let diceType = "highest";
+  		if(dt.toLower() === "h"){
+  			action = "keep";
+  			diceType = "highest";
+  		} else {
+  			action = "drop";
+  			diceType = "lowest"
+  		}
+  		let howMany = maybe_howMany ?? undefined;
+  		return new ast.KeepDrop(action, diceType, howMany);
+  	};
+  var peg$f9 = function(maybe_limit) {
+  		let limit = maybe_limit ?? undefined;
+  		return new ast.Reroll("=", undefined, undefined);
+  	};
+  var peg$f10 = function(seq) {
+  		return seq;
+  	};
+  var peg$f11 = function(head, tail) {
+  		tail.unshift(head);
+  		return new ast.RollSetModifiers(tail);
+  	};
+  var peg$f12 = function(action, dt, maybe_howMany) {
+  		let howMany = maybe_howMany ?? undefined;
+  		return new ast.KeepDrop(action, dt, howMany);
+  	};
+  var peg$f13 = function(maybe_compare, maybe_limit) {
+  		maybeCompare = maybeCompare ?? [undefined, undefined];
+  		let compareStr = maybeCompare[0] ?? undefined;
+  		let compareVal = maybeCompare[1] ?? undefined;
+  		return ast.Explode(compareStr, compareVal, maybe_limit ?? undefined);
+  	};
+  var peg$f14 = function(compareStr, compareVal, limit) {
+  		return ast.Reroll(compareStr, compareVal, limit);
+  	};
+  var peg$f15 = function(compareVal, limit) {
+  		return ast.Reroll(undefined, compareVal, limit);
+  	};
+  var peg$f16 = function(compareStr, compareVal) {
+  		return ast.Reroll(compareStr, compareVal);
+  	};
+  var peg$f17 = function(limit) {
+  		return ast.Reroll(undefined, undefined, limit);
+  	};
+  var peg$f18 = function(compareVal) {
+  		return ast.Reroll(undefined, compareVal);
+  	};
+  var peg$f19 = function() {
+  		return ast.Reroll();
+  	};
+  var peg$f20 = function(maybe_rounder, p) {
+  		if(maybe_rounder){
+  			return new ast.Rounder(maybe_rounder, p);
+  		} else {
+  			return p;
+  		}
+  	};
+  var peg$f21 = function(e) {
+  		return new ast.Parens(e);
+  	};
+  var peg$f22 = function(maybe_r, lookup) {
+  		let baseAst = new ast.Lookup(lookup);
+  		if(maybe_r){
+  			return new ast.Rounder(maybe_r, baseAst);
+  		} else {
+  			return baseAst;
+  		}
+  	};
+  var peg$f23 = function(r, p) {
+  		return new ast.Rounder(r, p);
+  	};
+  var peg$f24 = function(i) {
+  		return new ast.Static(i);
+  	};
+  var peg$f25 = function(name) {
+  		return name.join('');
+  	};
+  var peg$f26 = function() {
+  		return parseInt(text());
+  	};
 
   var peg$currPos = 0;
   var peg$savedPos = 0;
@@ -1157,8 +1745,8 @@ function peg$parse(input, options) {
         }
       }
       s4 = peg$parseopt_ws();
-      s1 = [s1, s2, s3, s4];
-      s0 = s1;
+      peg$savedPos = s0;
+      s0 = peg$f0(s2, s3);
     } else {
       peg$currPos = s0;
       s0 = peg$FAILED;
@@ -1254,8 +1842,8 @@ function peg$parse(input, options) {
             if (s6 === peg$FAILED) {
               s6 = null;
             }
-            s1 = [s1, s2, s3, s4, s5, s6];
-            s0 = s1;
+            peg$savedPos = s0;
+            s0 = peg$f1(s1, s3, s5, s6);
           } else {
             peg$currPos = s0;
             s0 = peg$FAILED;
@@ -1292,8 +1880,8 @@ function peg$parse(input, options) {
           if (s4 === peg$FAILED) {
             s4 = null;
           }
-          s1 = [s1, s2, s3, s4];
-          s0 = s1;
+          peg$savedPos = s0;
+          s0 = peg$f2(s1, s3, s4);
         } else {
           peg$currPos = s0;
           s0 = peg$FAILED;
@@ -1332,8 +1920,8 @@ function peg$parse(input, options) {
                 if (s6 === peg$FAILED) {
                   s6 = null;
                 }
-                s1 = [s1, s2, s3, s4, s5, s6];
-                s0 = s1;
+                peg$savedPos = s0;
+                s0 = peg$f3(s1, s3, s5, s6);
               } else {
                 peg$currPos = s0;
                 s0 = peg$FAILED;
@@ -1370,8 +1958,8 @@ function peg$parse(input, options) {
               if (s4 === peg$FAILED) {
                 s4 = null;
               }
-              s1 = [s1, s2, s3, s4];
-              s0 = s1;
+              peg$savedPos = s0;
+              s0 = peg$f4(s1, s3, s4);
             } else {
               peg$currPos = s0;
               s0 = peg$FAILED;
@@ -1398,8 +1986,8 @@ function peg$parse(input, options) {
                   if (s4 === peg$FAILED) {
                     s4 = null;
                   }
-                  s1 = [s1, s2, s3, s4];
-                  s0 = s1;
+                  peg$savedPos = s0;
+                  s0 = peg$f5(s1, s3);
                 } else {
                   peg$currPos = s0;
                   s0 = peg$FAILED;
@@ -1421,9 +2009,15 @@ function peg$parse(input, options) {
   }
 
   function peg$parserollModifiers() {
-    var s0;
+    var s0, s1;
 
-    s0 = peg$parsesimpleModifiers();
+    s0 = peg$currPos;
+    s1 = peg$parsesimpleModifiers();
+    if (s1 !== peg$FAILED) {
+      peg$savedPos = s0;
+      s1 = peg$f6(s1);
+    }
+    s0 = s1;
     if (s0 === peg$FAILED) {
       s0 = peg$parsefullModifiers();
     }
@@ -1465,8 +2059,8 @@ function peg$parse(input, options) {
         if (s4 === peg$FAILED) {
           s4 = null;
         }
-        s1 = [s1, s2, s3, s4];
-        s0 = s1;
+        peg$savedPos = s0;
+        s0 = peg$f7(s2, s3, s4);
       } else {
         peg$currPos = s0;
         s0 = peg$FAILED;
@@ -1497,8 +2091,8 @@ function peg$parse(input, options) {
           if (s3 === peg$FAILED) {
             s3 = null;
           }
-          s1 = [s1, s2, s3];
-          s0 = s1;
+          peg$savedPos = s0;
+          s0 = peg$f8(s2, s3);
         } else {
           peg$currPos = s0;
           s0 = peg$FAILED;
@@ -1521,8 +2115,8 @@ function peg$parse(input, options) {
           if (s2 === peg$FAILED) {
             s2 = null;
           }
-          s1 = [s1, s2];
-          s0 = s1;
+          peg$savedPos = s0;
+          s0 = peg$f9(s2);
         } else {
           peg$currPos = s0;
           s0 = peg$FAILED;
@@ -1558,8 +2152,8 @@ function peg$parse(input, options) {
           if (peg$silentFails === 0) { peg$fail(peg$e12); }
         }
         if (s6 !== peg$FAILED) {
-          s1 = [s1, s2, s3, s4, s5, s6];
-          s0 = s1;
+          peg$savedPos = s0;
+          s0 = peg$f10(s4);
         } else {
           peg$currPos = s0;
           s0 = peg$FAILED;
@@ -1630,8 +2224,8 @@ function peg$parse(input, options) {
           s3 = peg$FAILED;
         }
       }
-      s1 = [s1, s2];
-      s0 = s1;
+      peg$savedPos = s0;
+      s0 = peg$f11(s1, s2);
     } else {
       peg$currPos = s0;
       s0 = peg$FAILED;
@@ -1738,8 +2332,8 @@ function peg$parse(input, options) {
         if (s3 === peg$FAILED) {
           s3 = null;
         }
-        s1 = [s1, s2, s3];
-        s0 = s1;
+        peg$savedPos = s0;
+        s0 = peg$f12(s1, s2, s3);
       } else {
         peg$currPos = s0;
         s0 = peg$FAILED;
@@ -1772,8 +2366,7 @@ function peg$parse(input, options) {
           s5 = peg$parseopt_ws();
           s6 = peg$parseintVal();
           if (s6 !== peg$FAILED) {
-            s3 = [s3, s4, s5, s6];
-            s2 = s3;
+            s2 = [ s4, s6 ];
           } else {
             peg$currPos = s2;
             s2 = peg$FAILED;
@@ -1802,8 +2395,7 @@ function peg$parse(input, options) {
             if (peg$silentFails === 0) { peg$fail(peg$e19); }
           }
           if (s6 !== peg$FAILED) {
-            s4 = [s4, s5, s6];
-            s3 = s4;
+            s3 = s5;
           } else {
             peg$currPos = s3;
             s3 = peg$FAILED;
@@ -1819,8 +2411,8 @@ function peg$parse(input, options) {
       if (s3 === peg$FAILED) {
         s3 = null;
       }
-      s1 = [s1, s2, s3];
-      s0 = s1;
+      peg$savedPos = s0;
+      s0 = peg$f13(s2, s3);
     } else {
       peg$currPos = s0;
       s0 = peg$FAILED;
@@ -1859,8 +2451,8 @@ function peg$parse(input, options) {
                 if (peg$silentFails === 0) { peg$fail(peg$e19); }
               }
               if (s8 !== peg$FAILED) {
-                s1 = [s1, s2, s3, s4, s5, s6, s7, s8];
-                s0 = s1;
+                peg$savedPos = s0;
+                s0 = peg$f14(s3, s5, s7);
               } else {
                 peg$currPos = s0;
                 s0 = peg$FAILED;
@@ -1911,8 +2503,8 @@ function peg$parse(input, options) {
                   if (peg$silentFails === 0) { peg$fail(peg$e19); }
                 }
                 if (s6 !== peg$FAILED) {
-                  s1 = [s1, s2, s3, s4, s5, s6];
-                  s0 = s1;
+                  peg$savedPos = s0;
+                  s0 = peg$f15(s3, s5);
                 } else {
                   peg$currPos = s0;
                   s0 = peg$FAILED;
@@ -1953,8 +2545,8 @@ function peg$parse(input, options) {
             s4 = peg$parseopt_ws();
             s5 = peg$parseintVal();
             if (s5 !== peg$FAILED) {
-              s1 = [s1, s2, s3, s4, s5];
-              s0 = s1;
+              peg$savedPos = s0;
+              s0 = peg$f16(s3, s5);
             } else {
               peg$currPos = s0;
               s0 = peg$FAILED;
@@ -1989,8 +2581,8 @@ function peg$parse(input, options) {
                   if (peg$silentFails === 0) { peg$fail(peg$e19); }
                 }
                 if (s4 !== peg$FAILED) {
-                  s1 = [s1, s2, s3, s4];
-                  s0 = s1;
+                  peg$savedPos = s0;
+                  s0 = peg$f17(s3);
                 } else {
                   peg$currPos = s0;
                   s0 = peg$FAILED;
@@ -2021,8 +2613,8 @@ function peg$parse(input, options) {
               if (s2 !== peg$FAILED) {
                 s3 = peg$parseintVal();
                 if (s3 !== peg$FAILED) {
-                  s1 = [s1, s2, s3];
-                  s0 = s1;
+                  peg$savedPos = s0;
+                  s0 = peg$f18(s3);
                 } else {
                   peg$currPos = s0;
                   s0 = peg$FAILED;
@@ -2036,13 +2628,19 @@ function peg$parse(input, options) {
               s0 = peg$FAILED;
             }
             if (s0 === peg$FAILED) {
+              s0 = peg$currPos;
               if (input.substr(peg$currPos, 6) === peg$c16) {
-                s0 = peg$c16;
+                s1 = peg$c16;
                 peg$currPos += 6;
               } else {
-                s0 = peg$FAILED;
+                s1 = peg$FAILED;
                 if (peg$silentFails === 0) { peg$fail(peg$e20); }
               }
+              if (s1 !== peg$FAILED) {
+                peg$savedPos = s0;
+                s1 = peg$f19();
+              }
+              s0 = s1;
             }
           }
         }
@@ -2109,8 +2707,8 @@ function peg$parse(input, options) {
     }
     s2 = peg$parserawParens();
     if (s2 !== peg$FAILED) {
-      s1 = [s1, s2];
-      s0 = s1;
+      peg$savedPos = s0;
+      s0 = peg$f20(s1, s2);
     } else {
       peg$currPos = s0;
       s0 = peg$FAILED;
@@ -2143,8 +2741,8 @@ function peg$parse(input, options) {
           if (peg$silentFails === 0) { peg$fail(peg$e27); }
         }
         if (s5 !== peg$FAILED) {
-          s1 = [s1, s2, s3, s4, s5];
-          s0 = s1;
+          peg$savedPos = s0;
+          s0 = peg$f21(s3);
         } else {
           peg$currPos = s0;
           s0 = peg$FAILED;
@@ -2172,8 +2770,8 @@ function peg$parse(input, options) {
     }
     s2 = peg$parsevariable();
     if (s2 !== peg$FAILED) {
-      s1 = [s1, s2];
-      s0 = s1;
+      peg$savedPos = s0;
+      s0 = peg$f22(s1, s2);
     } else {
       peg$currPos = s0;
       s0 = peg$FAILED;
@@ -2184,8 +2782,8 @@ function peg$parse(input, options) {
       if (s1 !== peg$FAILED) {
         s2 = peg$parserawParens();
         if (s2 !== peg$FAILED) {
-          s1 = [s1, s2];
-          s0 = s1;
+          peg$savedPos = s0;
+          s0 = peg$f23(s1, s2);
         } else {
           peg$currPos = s0;
           s0 = peg$FAILED;
@@ -2195,7 +2793,13 @@ function peg$parse(input, options) {
         s0 = peg$FAILED;
       }
       if (s0 === peg$FAILED) {
-        s0 = peg$parseintLiteral();
+        s0 = peg$currPos;
+        s1 = peg$parseintLiteral();
+        if (s1 !== peg$FAILED) {
+          peg$savedPos = s0;
+          s1 = peg$f24(s1);
+        }
+        s0 = s1;
       }
     }
     peg$silentFails--;
@@ -2264,8 +2868,8 @@ function peg$parse(input, options) {
           if (peg$silentFails === 0) { peg$fail(peg$e32); }
         }
         if (s3 !== peg$FAILED) {
-          s1 = [s1, s2, s3];
-          s0 = s1;
+          peg$savedPos = s0;
+          s0 = peg$f25(s2);
         } else {
           peg$currPos = s0;
           s0 = peg$FAILED;
@@ -2319,8 +2923,8 @@ function peg$parse(input, options) {
       s2 = peg$FAILED;
     }
     if (s2 !== peg$FAILED) {
-      s1 = [s1, s2];
-      s0 = s1;
+      peg$savedPos = s0;
+      s0 = peg$f26();
     } else {
       peg$currPos = s0;
       s0 = peg$FAILED;
@@ -2417,5 +3021,184 @@ module.exports = {
   parse: peg$parse
 };
 
-},{"./grammerAST":4}]},{},[2])(2)
+},{"./grammerAST":4}],6:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.stringify_loop = exports.stringify = void 0;
+let ast = require("./grammerAST");
+let evaluate = require("./evaluate");
+function isAST(val) {
+    return val.children !== undefined;
+}
+function stringify(resOrAst) {
+    if (isAST(resOrAst)) {
+        return stringify_loop(resOrAst, ast_format_steps);
+    }
+    else {
+        return stringify_loop(resOrAst, res_format_steps);
+    }
+}
+exports.stringify = stringify;
+function ast_format_steps(astree) {
+    if (astree instanceof ast.Static) {
+        let a = astree;
+        return [a.value.toString()];
+    }
+    if (astree instanceof ast.Lookup) {
+        let a = astree;
+        return ["[", a.lookupName, "]"];
+    }
+    if (astree instanceof ast.RollSetModifiers) {
+        let a = astree;
+        return ["oh god modifiers..."];
+    }
+    if (astree instanceof ast.KeepDrop) {
+        let a = astree;
+        return ["keep lowest 33"];
+    }
+    if (astree instanceof ast.ReRoll) {
+        let a = astree;
+        return ["reroll >10 55x"];
+    }
+    if (astree instanceof ast.Explode) {
+        let a = astree;
+        return ["explode =3 1x"];
+    }
+    if (astree instanceof ast.DiceRoll) {
+        let a = astree;
+        return [() => ast_num_dice(a), () => ast_dice_mode(a), () => ast_minmax(a), () => ast_dice_modifiers(a)];
+    }
+    if (astree instanceof ast.Rounder) {
+        let a = astree;
+        return [a.roundType, () => ast_format_steps(a.thingToRound)];
+    }
+    if (astree instanceof ast.MathOp) {
+        let a = astree;
+        return [a.op, () => ast_format_steps(a.val)];
+    }
+    if (astree instanceof ast.MathOpList) {
+        let a = astree;
+        let mapper = (o) => {
+            return () => ast_format_steps(o);
+        };
+        return a.ops.map(mapper);
+    }
+    if (astree instanceof ast.MathSeq) {
+        let a = astree;
+        [() => ast_format_steps(a.head), () => ast_format_steps(a.ops)];
+    }
+    if (astree instanceof ast.Parens) {
+        let a = astree;
+        return ["( ", () => ast_format_steps(a.expression), " )"];
+    }
+    throw ('cannot format the thing');
+}
+function ast_num_dice(d) {
+    return ["12"];
+}
+function ast_dice_mode(d) {
+    return ["z"];
+}
+function ast_minmax(d) {
+    return ["99..-12"];
+}
+function ast_dice_modifiers(d) {
+    return ["no mods!"];
+}
+function stringify_loop(thing, formatter) {
+    let gathered = [];
+    let stepsLeft = formatter(thing);
+    while (stepsLeft.length > 0) {
+        let head = stepsLeft.shift();
+        if (head === undefined) {
+            continue;
+        }
+        if (typeof head === "string") {
+            gathered.push(head);
+            continue;
+        }
+        let prepend = head();
+        stepsLeft = prepend.concat(stepsLeft);
+    }
+    return gathered.join('');
+}
+exports.stringify_loop = stringify_loop;
+function res_format_steps(res) {
+    if (res instanceof evaluate.StaticR) {
+        return [() => ast_format_steps(res.ast)];
+    }
+    if (res instanceof evaluate.LookupR) {
+        return [res.valueOf().toString(), ":", () => ast_format_steps(res.ast)];
+    }
+    if (res instanceof evaluate.ParensR) {
+        let p = res;
+        return ["( ", () => res_format_steps(p.expression), " )"];
+    }
+    if (res instanceof evaluate.RounderR) {
+        let r = res;
+        return [r.mode, () => res_format_steps(r.thingRounded)];
+    }
+    if (res instanceof evaluate.DiceRollR) {
+        let d = res;
+        return [() => num_dice(d), () => dice_mode(d), () => minmax(d), () => dice_modifiers(d.modifiers)];
+    }
+    if (res instanceof evaluate.RollSetModifiersR) {
+        let mods = res;
+        return dice_modifiers(mods);
+    }
+    if (res instanceof evaluate.KeepDropModifier) {
+        let mod = res;
+        return keep_drop_modifier(mod);
+    }
+    if (res instanceof evaluate.RerollModifier) {
+        let mod = res;
+        return reroll_modifier(mod);
+    }
+    if (res instanceof evaluate.ExplodeModifier) {
+        let mod = res;
+        return explode_modifier(mod);
+    }
+    if (res instanceof evaluate.MathOpR) {
+        let m = res;
+        return [m.op, " ", () => res_format_steps(m.operand)];
+    }
+    if (res instanceof evaluate.MathOpListR) {
+        let m = res;
+        let mapper = (op) => {
+            return () => res_format_steps(op);
+        };
+        return m.ops.map(mapper);
+    }
+    if (res instanceof evaluate.MathSeqR) {
+        let m = res;
+        let top = m.valueOf().toString();
+        let headEval = () => res_format_steps(m.head);
+        let opsEval = () => res_format_steps(m.ops);
+        return [top, ":", headEval, opsEval];
+    }
+    throw ('unformatabled!');
+}
+function num_dice(diceroll) {
+    return ["500"];
+}
+function dice_mode(diceroll) {
+    return ["q"];
+}
+function minmax(diceroll) {
+    return ["77..32"];
+}
+function dice_modifiers(mods) {
+    return [":rr99"];
+}
+function keep_drop_modifier(mod) {
+    return ["keep highest 27"];
+}
+function reroll_modifier(mod) {
+    return ["reroll <12 78x"];
+}
+function explode_modifier(mod) {
+    return ["explode =7 8x"];
+}
+
+},{"./evaluate":3,"./grammerAST":4}]},{},[2])(2)
 });

@@ -1,12 +1,26 @@
 {{
-let grammerAST = require("./grammerAST");
+let ast = require("./grammerAST");
 }}
 
 start
 	= mathSeq
 
 mathSeq
-	= opt_ws exp:expression (opt_ws @mathOp opt_ws @expression)* opt_ws
+	= opt_ws exp:expression tail:(opt_ws @mathOp opt_ws @expression)* opt_ws {
+		if(tail.length == 0){
+			return exp;
+		} else {
+			let tailMapper = (arr) => {
+				let op = arr[0];
+				let tailExp = arr[1];
+				return new ast.MathOp(op, tailExp);
+			}
+			let mappedTail = tail.map(tailMapper);
+			let mathOpList = new ast.MathOpList(mappedTail);
+			let mathSeq = new ast.MathSeq(exp, mathOpList);
+			return mathSeq;
+		}
+	}
 
 mathOp
 	= "*"
@@ -20,26 +34,81 @@ expression
 	/ intVal
 
 diceroll
-	= x:intVal? [dD] min:intVal ".." max:intVal rollModifiers?
-	/ x:intVal? [dD] max:intVal rollModifiers?
-	/ x:intVal? [wW] min:intVal ".." max:intVal rollModifiers?
-	/ x:intVal? [wW] max:intVal rollModifiers?
-	/ min:intVal ".." max:intVal rollModifiers?
+	= x:intVal? [dD] min:intVal ".." max:intVal mods:rollModifiers? {
+
+		return new ast.DiceRoll(x ?? undefined, min, max, mods ?? undefined);
+	}
+	/ x:intVal? [dD] max:intVal mods:rollModifiers? {
+		return new ast.DiceRoll(x ?? undefined, undefined, max, mods ?? undefined);
+	}
+	/ x:intVal? [wW] min:intVal ".." max:intVal mods:rollModifiers? {
+		let wildMod = new ast.Explode("=", max, 10000, min, max);
+		mods.unshift(wildMod);
+		return new ast.DiceRoll(x ?? undefined, min, max, mods);
+	}
+	/ x:intVal? [wW] max:intVal maybeMods:rollModifiers? {
+		let mods = maybeMods ?? [];
+		let wildMod = new ast.Explode("=", max, 10000, 1, max);
+		mods.unshift(wildMod);
+		return new ast.DiceRoll(x ?? undefined, undefined, max, mods);
+	}
+	/ min:intVal ".." max:intVal rollModifiers? {
+		return new ast.DiceRoll(undefined, min, max, []);
+	}
 
 rollModifiers
-	= simpleModifiers
+	= s:simpleModifiers {
+		return new ast.RollSetModifiers([s]);
+	}
 	/ fullModifiers
 
 simpleModifiers
-	= ":" [kKdD] [hHlL]? intVal?
-	/ ":" [hHlL] intVal?
-	/ ":rr" intVal?
+	= ":" kd:[kKdD] maybe_hl:[hHlL]? maybe_howMany:intVal? {
+		let defaultDiceType = "highest";
+		let action = "keep";
+		if(kd.toLower() === "d"){
+			action = "drop"
+			defaultDicetype = "lowest"
+		}
+		let diceType = defaultDiceType;
+		if(maybe_hl){
+			if(maybe_hl.toLower() === "l"){
+				diceType = "lowest";
+			} else {
+				diceType = "highest";
+			}
+		}
+		let howMany = maybe_howMany ?? undefined;
+		return new ast.KeepDrop(action, diceType, howMany);
+	}
+	/ ":" dt:[hHlL] maybe_howMany:intVal? {
+		let action = "keep";
+		let diceType = "highest";
+		if(dt.toLower() === "h"){
+			action = "keep";
+			diceType = "highest";
+		} else {
+			action = "drop";
+			diceType = "lowest"
+		}
+		let howMany = maybe_howMany ?? undefined;
+		return new ast.KeepDrop(action, diceType, howMany);
+	}
+	/ ":rr" maybe_limit:intVal? {
+		let limit = maybe_limit ?? undefined;
+		return new ast.Reroll("=", undefined, undefined);
+	}
 
 fullModifiers
-	= opt_ws "{" opt_ws modifierSeq opt_ws "}"
+	= opt_ws "{" opt_ws seq:modifierSeq opt_ws "}"{
+		return seq;
+	}
 
 modifierSeq
-	= modifier ( opt_ws ";" opt_ws @modifier )*
+	= head:modifier tail:( opt_ws ";" opt_ws @modifier )*{
+		tail.unshift(head);
+		return new ast.RollSetModifiers(tail);
+	}
 
 modifier
 	= keepDropModifier
@@ -47,18 +116,38 @@ modifier
 	/ rerollModifier
 
 keepDropModifier
-	= ("keep" / "drop") (need_ws "highest" / need_ws "lowest") (need_ws intVal)?
+	= action:("keep" / "drop") dt:(need_ws "highest" / need_ws "lowest") maybe_howMany:(need_ws intVal)?{
+		let howMany = maybe_howMany ?? undefined;
+		return new ast.KeepDrop(action, dt, howMany);
+	}
 
 explodeModifier
-	= "explode" (need_ws comparison opt_ws intVal)? (need_ws intVal "x")?
+	= "explode" maybe_compare:(need_ws @comparison opt_ws @intVal)? maybe_limit:(need_ws @intVal "x")? {
+		maybeCompare = maybeCompare ?? [undefined, undefined];
+		let compareStr = maybeCompare[0] ?? undefined;
+		let compareVal = maybeCompare[1] ?? undefined;
+		return ast.Explode(compareStr, compareVal, maybe_limit ?? undefined);
+	}
 
 rerollModifier
-	= "reroll" opt_ws comparison opt_ws intVal need_ws intVal "x"
-	/ "reroll" need_ws intVal need_ws intVal "x"
-	/ "reroll" opt_ws comparison opt_ws intVal
-	/ "reroll" need_ws intVal "x"
-	/ "reroll" need_ws intVal
-	/ "reroll"
+	= "reroll" opt_ws compareStr:comparison opt_ws compareVal:intVal need_ws limit:intVal "x" {
+		return ast.Reroll(compareStr, compareVal, limit);
+	}
+	/ "reroll" need_ws compareVal:intVal need_ws limit:intVal "x" {
+		return ast.Reroll(undefined, compareVal, limit);
+	}
+	/ "reroll" opt_ws compareStr:comparison opt_ws compareVal:intVal {
+		return ast.Reroll(compareStr, compareVal);
+	}
+	/ "reroll" need_ws limit:intVal "x" {
+		return ast.Reroll(undefined, undefined, limit);
+	}
+	/ "reroll" need_ws compareVal:intVal {
+		return ast.Reroll(undefined, compareVal);
+	}
+	/ "reroll" {
+		return ast.Reroll();
+	}
 
 comparison "comparison operator"
 	= ">="
@@ -67,143 +156,50 @@ comparison "comparison operator"
 	/ [>=<]
 
 parenExpress
-	= roundIndicator? rawParens
+	= maybe_rounder:roundIndicator? p:rawParens {
+		if(maybe_rounder){
+			return new ast.Rounder(maybe_rounder, p);
+		} else {
+			return p;
+		}
+	}
 
 rawParens
-	= "(" opt_ws mathSeq opt_ws ")"
+	= "(" opt_ws e:mathSeq opt_ws ")"{
+		return new ast.Parens(e);
+	}
 
 intVal "integer or rounded expression"
-	= roundIndicator? variable
-	/ roundIndicator rawParens
-	/ intLiteral
+	= maybe_r:roundIndicator? lookup:variable {
+		let baseAst = new ast.Lookup(lookup);
+		if(maybe_r){
+			return new ast.Rounder(maybe_r, baseAst);
+		} else {
+			return baseAst;
+		}
+	}
+	/ r:roundIndicator p:rawParens {
+		return new ast.Rounder(r, p);
+	}
+	/ i:intLiteral {
+		return new ast.Static(i);
+	}
 
 roundIndicator
 	= [cCfFrR]
 
 variable
-	= "[" [^\[\]]+ "]"
+	= "[" name:[^\[\]]+ "]"{
+		return name.join('');
+	}
 
 intLiteral
-	= [-]? [0-9]+
+	=  [-]? [0-9]+ {
+		return parseInt(text());
+	}
 
 opt_ws "whitespace"
 	= [\n\r\t ]*
 
 need_ws "required whitespace"
 	= [\n\r\t ]+
-
-//// old implemention
-/*
-start
-	= ws r:dicerolls ws { return r; }
-
-dicerolls
-	//= head:multiplicationSeq op:additionOp tail:additionSeq { return opAST(op, [v1, v2]) }
-	/// out:additionSeq { return out; }
-	= out:additionSeq { return out; }
-	/ out:parenExpress { return out; }
-
-parenExpress
-	= "(" ws rolls:dicerolls ws ")" { return parenAST(rolls) }
-
-multiplicationOp
-	= ws "*" ws { return '*'; }
-	/ ws "/" ws { return '/'; }
-
-multiplicationSeq
-	= multHead:multHead op:multiplicationOp multTail:multiplicationSeq {
-		if(multTail.op !== 'mult'){
-			multTail = {'op':'mult', 'multiplicants':[['*', multTail]]};
-		}
-		multTail.multiplicants[0][0] = op;
-		multTail.multiplicants.unshift(['*', multHead]);
-		return multTail;
-		}
-	/ d:diceroll { return d; }
-	/ paren:parenExpress { return paren; }
-
-multHead
-	= diceroll
-	/ intval
-	/ parenExpress
-
-additionSeq
-	= addHead:multiplicationSeq op:additionOp addTail:additionSeq {
-		if(addTail.op !== 'sum'){
-			addTail = {'op':'sum', 'addends':[['+', addTail]]};
-		}
-		addTail.addends[0][0] = op;
-		addTail.addends.unshift(['+', addHead]);
-		return addTail;
-	}
-	/ op:multiplicationSeq { return op; }
-	/ op:parenExpress { return op; }
-
-additionOp
-	= ws "+" ws { return "+"; }
-	/ ws "-" ws { return "-"; }
-
-diceroll
-	= d:diceform ws "{" ws mods:modifiers ws "}" { return diceRollAST(d, mods) }
-	/ d:diceform ":" mods:simplifiedMods { return dicerollAST(d, mods) }
-
-diceform
-	= x:intval mode:rollmode mm:maybe_minmax { return diceFormObj(x, mode.toLowerCase(), mm); }
-	/ mode:rollmode mm:maybe_minmax { return diceFormObj(staticAST(1), mode.toLowerCase(), mm); }
-	/ mm:minmax { return diceFormObj(staticAST(1), 'd', mm); }
-
-rollmode
-	= [dw]i
-
-maybe_minmax
-	= mm:minmax { return mm; }
-	/ max:intval { return minMaxObj(staticAST(1), max); }
-
-minmax
-	= min:intval ".." max:intval { return minMaxObj(min, max); }
-
-simplifiedMods
-	= rr:simpleReroll { return rr; }
-	/ dk:simpleDropKeep { return dk; }
-
-simpleReroll
-	= [r]i [r]i { return {'op':'modlist', 'args':[{'op':'modifier','type':'reroll', 'args':['min',1]}]}}
-
-simpleDropKeep
-	= act:[dk]i? direction:[hl]i? howMany:intval? { return {'op':'modlist', 'args':[{'op':'modifier','type':}]}}
-
-ws
-	= [\n\r\t ]*
-
-ws1 "needed whitespace"
-	= [\n\r\t ]+
-
-intval "an integer literal, variable name (rounded or not), or rounded parenthesis"
-	= i:integer {
-		return {'op': 'static', value: i};
-	}
-	/ l:lookup{
-		return l;
-	}
-	/ f:mathit v:lookup{
-		return {'op':f, args:[v]};
-	}
-	/ f:mathit ex:parenExpress{
-		return {'op':f, args:ex.args};
-	}
-
-mathit
-	= "f" { return 'floor'; }
-	/ "r" { return 'round'; }
-	/ "c" { return 'ceil'; }
-
-lookup
-	= v:variable { return {'op':'lookup', 'value':v}; }
-
-variable
-	= "[" varname:[^[\]]+ "]" { return varname.join(""); }
-
-integer "integer"
-	= digits:[0-9]+ { return parseInt(digits.join(""), 10); }
-	/ "-" digits:[0-9]+ { return parseInt(digits.join(""), 10) * -1; }
-	*/
