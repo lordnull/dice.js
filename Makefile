@@ -6,10 +6,13 @@ build/.deps-done: package.json package-lock.json
 	mkdir -p build
 	npm install -y && touch build/.deps-done
 
-src/parser.js: build/.deps-done src/dice.peg src/grammerAST.js
+build/.tsc-done: src/*.ts
+	npx tsc -p tsconfig.json && touch build/.tsc-done
+
+src/parser.js: build/.deps-done src/dice.peg build/.tsc-done
 	npx peggy -o src/parser.js src/dice.peg
 
-build/dice.js: build/.deps-done src/parser.js src/evaluate.js
+build/dice.js: build/.deps-done src/parser.js build/.tsc-done
 	mkdir -p build
 	npx browserify -e src/dice.js > build/dice.js -s dice
 

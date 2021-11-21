@@ -3,14 +3,14 @@ var rand_roll_gen = require('./rand_roll_gen');
 
 describe("Dice", function(){
 
-	it("inits properly", function(){
+	xit("inits properly", function(){
 		expect(dice).toBeDefined();
 		expect(dice.eval).toBeDefined();
 		expect(dice.parse).toBeDefined();
 		expect(dice.roll).toBeDefined();
 	});
 
-	describe("can parse a variety of intputs", function(){
+	xdescribe("can parse a variety of intputs", function(){
 		var strings =
 			["1"
 			,"1d6"
@@ -90,7 +90,7 @@ describe("Dice", function(){
 		});
 	});
 
-	describe("Randomly generated rolls", function(){
+	xdescribe("Randomly generated rolls", function(){
 		console.log(rand_roll_gen);
 		for(let i = 0; i < 100; i++){
 			let str = rand_roll_gen.start();
@@ -103,7 +103,7 @@ describe("Dice", function(){
 		}
 	})
 
-	xdescribe("Roll results", function(){
+	describe("Roll results", function(){
 
 		it("returns static numbers", function(){
 			var res = dice.roll("3");
@@ -163,7 +163,7 @@ describe("Dice", function(){
 			expect(stringy).toMatch(/1d20:\[\d+\] \+ 4/);
 		});
 
-		it("parse and roll correct number of dice", function(){
+		xit("parse and roll correct number of dice", function(){
 			res = dice.roll("3d6..6");
 			expect(res).toEqual(18);
 			expect(res.rolls).toBeDefined();
@@ -173,7 +173,7 @@ describe("Dice", function(){
 			});
 		});
 
-		it("allows min and max to be negative", function(){
+		xit("allows min and max to be negative", function(){
 			var res1 = dice.roll("-1..1");
 			expect(res1).toBeLessThan(2);
 			expect(res1).toBeGreaterThan(-2);
@@ -182,13 +182,13 @@ describe("Dice", function(){
 			expect(res2).toBeGreaterThan(-9);
 		});
 
-		it("allows min and max to be in any order", function(){
+		xit("allows min and max to be in any order", function(){
 			var res = dice.roll("1..-1");
 			expect(res).toBeLessThan(2);
 			expect(res).toBeGreaterThan(-2);
 		});
 
-		it("parse scope in num dice", function(){
+		xit("parse scope in num dice", function(){
 			var rollStr = "[Key Thing]d5..5";
 
 			var scope = {"Key Thing":4};
@@ -202,7 +202,7 @@ describe("Dice", function(){
 			expect(res).toEqual(27 * 5);
 		});
 
-		it("parse scope in min and max", function(){
+		xit("parse scope in min and max", function(){
 			var rollStr = "2d[Key Thing]..[Key Thing]";
 
 			var scope = {"Key Thing":4};
@@ -217,53 +217,53 @@ describe("Dice", function(){
 
 		});
 
-		it("adds negative numbers correctly", function(){
+		xit("adds negative numbers correctly", function(){
 			var rollStr = "5 + -2";
 			var parsed = dice.roll(rollStr, {});
 			expect(parsed).toEqual(3);
 		});
 
-		it("handles multiplication", function(){
+		xit("handles multiplication", function(){
 			var rollStr = "1d3..3 * 5";
 			var parsed = dice.roll(rollStr, {});
 			expect(parsed).toEqual(15);
 		});
 
-		it("can divide two numbers", function(){
+		xit("can divide two numbers", function(){
 			var rollStr = "1d15..15 / 3";
 			var parsed = dice.roll(rollStr, {});
 			expect(parsed).toEqual(5);
 		});
 
-		it("floors variable numbers", function(){
+		xit("floors variable numbers", function(){
 			var rollStr = "f[thang]d5..5";
 			var scope = {'thang':3.7};
 			var res = dice.roll(rollStr, scope);
 			expect(res).toEqual(15);
 		});
 
-		it("rounds variable numbers", function(){
+		xit("rounds variable numbers", function(){
 			var rollStr = "r[3 2]dr[4 5]..5 + r[6 7]";
 			var scope = {'3 2': 3.2, '4 5': 4.5, '6 7':6.7};
 			var res = dice.roll(rollStr, scope);
 			expect(res).toEqual(22);
 		});
 
-		it("ceilings variable numbers", function(){
+		xit("ceilings variable numbers", function(){
 			var rollStr = "1d4..c[not four]";
 			var scope = {'not four': 3.2};
 			var res = dice.roll(rollStr, scope);
 			expect(res).toEqual(4)
 		});
 
-		it("respects order of operations", function(){
+		xit("respects order of operations", function(){
 			var rollStr = "[n] + 2 * 5";
 			var scope = {'n':7};
 			var res = dice.roll(rollStr, scope);
 			expect(res).toEqual(17);
 		});
 
-		it("handles basic parenthsis correctly", function(){
+		xit("handles basic parenthesis correctly", function(){
 			var rollStr = "(2 + 3) * 7";
 			var res = dice.roll(rollStr, {});
 			expect(res).toEqual(35);
@@ -277,7 +277,7 @@ describe("Dice", function(){
 		["c(10 /3)", 4, "c( 10 / 3 )"]
 		];
 		testThings.map(function(ar){
-			it("round evals " + ar[0], function(){
+			xit("round evals " + ar[0], function(){
 				var res = dice.roll(ar[0], {});
 				expect(res).toEqual(ar[1]);
 				var stringy = dice.stringify(res);
@@ -285,14 +285,14 @@ describe("Dice", function(){
 			});
 		});
 
-		it("evaluates simple statistics with no extra params", function(){
+		xit("evaluates simple statistics with no extra params", function(){
 			var results = dice.statistics("1d1");
 			expect(results.min).toEqual(1);
 			expect(results.max).toEqual(1);
 			expect(results.mean).toEqual(1);
 		});
 
-		it("evaluates simple statistics with only samples", function(){
+		xit("evaluates simple statistics with only samples", function(){
 			var results = dice.statistics("1d1", 10);
 			expect(results.min).toEqual(1);
 			expect(results.results.length).toEqual(10);
@@ -300,14 +300,14 @@ describe("Dice", function(){
 			expect(results.mean).toEqual(1);
 		});
 
-		it("evaluates simple statistics with only scope", function(){
+		xit("evaluates simple statistics with only scope", function(){
 			var results = dice.statistics("1d[one]", {'one': 1});
 			expect(results.min).toEqual(1);
 			expect(results.max).toEqual(1);
 			expect(results.mean).toEqual(1);
 		});
 
-		it("evaluates simple statistics with both scope and samples", function(){
+		xit("evaluates simple statistics with both scope and samples", function(){
 			var results = dice.statistics("[one]d1", {'one': 1}, 50);
 			expect(results.min).toEqual(1);
 			expect(results.results.length).toEqual(50);
@@ -315,7 +315,7 @@ describe("Dice", function(){
 			expect(results.mean).toEqual(1);
 		});
 
-		it("can lookup weirdly named properties", function(){
+		xit("can lookup weirdly named properties", function(){
 			var propName = "ಠ_ಠ and-more_unusual.characters#$!^*&";
 			var scope = {};
 			scope[propName] = 53;
@@ -323,7 +323,7 @@ describe("Dice", function(){
 			expect(results).toEqual(53);
 		});
 
-		it("can lookup nested scope variables", function(){
+		xit("can lookup nested scope variables", function(){
 			var scope = {
 				upper: {
 					nested: 7
@@ -333,7 +333,7 @@ describe("Dice", function(){
 			expect(results).toEqual(7);
 		});
 
-		it("prefers full property name over nested scope", function(){
+		xit("prefers full property name over nested scope", function(){
 			var scope = {
 				"upper.nested": 5,
 				upper: {
@@ -344,13 +344,13 @@ describe("Dice", function(){
 			expect(results).toEqual(5);
 		});
 
-		it("treats 'D' and 'd' the same", function(){
+		xit("treats 'D' and 'd' the same", function(){
 			var r1 = dice.roll("1d1");
 			var r2 = dice.roll("1D1");
 			expect(r1).toEqual(r2);
 		});
 
-		it("treats 'W' and 'w' the same", function(){
+		xit("treats 'W' and 'w' the same", function(){
 			var r1 = dice.statistics('1w6');
 			var r2 = dice.statistics('1W6');
 			expect(r1.min_possible).toEqual(r2.min_possible);
