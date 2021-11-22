@@ -4,16 +4,21 @@ let grammer = require("./grammerAST");
 import type { AST } from "./grammerAST";
 import type * as grammerTypes from "./grammerAST";
 
+type ANumber = number | Number;
+
 export class Resolver extends Number {
 	ast : AST;
-	constructor(n : number | undefined, ast : AST){
+	constructor(n : ANumber | undefined, ast : AST){
 		super(n);
 		this.ast = ast;
+	}
+	get rolls() : Number[] {
+		return [];
 	}
 }
 
 export class StaticR extends Resolver {
-	constructor(n : number){
+	constructor(n : ANumber){
 		super(n, new grammer.Static(n));
 	}
 }
@@ -26,7 +31,7 @@ export class LookupR extends Resolver {
 		super(LookupR.deepSeek(name, scope), new grammer.Lookup(name));
 		this.#lookupName = name;
 	}
-	static deepSeek(path : string, object : Record<string,any>) : undefined | number {
+	static deepSeek(path : string, object : Record<string,any>) : undefined | ANumber {
 		if(object.hasOwnProperty(path)){
 			return object[path];
 		}
@@ -53,7 +58,7 @@ export class LookupR extends Resolver {
 	};
 }
 
-type MiniDice = { min : Number, max : Number, rolls : Number };
+type MiniDice = { min : Resolver, max : Resolver, x : Resolver};
 
 // Ugh, just to work around a stupid ts limitation.
 // "nothing before super" they say, but I need to calculate stuff!
@@ -72,7 +77,13 @@ export class DiceRollR extends Resolver{
 		return this.#max;
 	}
 	get rolls(){
-		return this.#rolls;
+		let minRolls = this.min.rolls;
+		let maxRolls = this.max.rolls;
+		let xRolls = this.x.rolls;
+		let modRolls = this.modifiers.rolls;
+		let myRolls = this.#rolls;
+		let deep = new Array(xRolls, minRolls, maxRolls, modRolls, myRolls);
+		return deep.flatMap((e) => e);
 	}
 	get modifiers(){
 		return this.#modifiers;
@@ -80,7 +91,7 @@ export class DiceRollR extends Resolver{
 	get x(){
 		return this.#x;
 	}
-	constructor(x: Number, min : Number, max : Number, modifiers : RollSetModifiersR, ast : AST){
+	constructor(x: Resolver, min : Resolver, max : Resolver, modifiers : RollSetModifiersR, ast : grammerTypes.DiceRoll){
 		super(DiceRollR.initVal(x, min, max, modifiers), ast);
 		this.#x = x;
 		this.#min = min;
@@ -99,9 +110,9 @@ export class DiceRollR extends Resolver{
 		rndNumber.max = max;
 		return rndNumber;*/
 	};
-	static resultSet(rolls : Number, min : Number, max : Number){
+	static resultSet(x : Resolver, min : Resolver, max : Resolver){
 		let out = [];
-		for(let i = 0; i < rolls; i++){
+		for(let i = 0; i < x.valueOf(); i++){
 			out.push(new Number(DiceRollR.rand(min, max)));
 		}
 		return out;
@@ -112,9 +123,9 @@ export class DiceRollR extends Resolver{
 	static sum(resultSet : Number[]){
 		return resultSet.reduce((a : number, e) => a + e.valueOf(), 0);
 	}
-	static initVal(rolls : Number, min : Number, max : Number, modifiers : RollSetModifiersR){
-		let resultSet = DiceRollR.resultSet(rolls ?? 1, min ?? 1, max);
-		resultSet = DiceRollR.applyModifiers(resultSet, modifiers, {rolls, min, max});
+	static initVal(x: Resolver, min : Resolver, max : Resolver, modifiers : RollSetModifiersR){
+		let resultSet = DiceRollR.resultSet(x ?? new StaticR(1), min ?? new StaticR(1), max);
+		resultSet = DiceRollR.applyModifiers(resultSet, modifiers, {x, min, max});
 		resultSetInstance = resultSet;
 		let sum = DiceRollR.sum(resultSet);
 		return sum;
@@ -127,7 +138,14 @@ export class RollSetModifiersR extends Resolver {
 		super(NaN, ast);
 		this.#mods = mods;
 	}
-	modify(resultSet : Number[], baseDice : {min : Number, max: Number}) : Number[]{
+	get rolls(){
+		let deep = this.#mods.map((m) => m.rolls);
+		return deep.flatMap((e) => e);
+	}
+	get mods(){
+		return this.#mods;
+	}
+	modify(resultSet : Number[], baseDice : {min : Resolver, max: Resolver}) : Number[]{
 		let reducer = (a : Number[], m : RollSetModifierR) : Number[] => {
 			return m.modify(a, baseDice);
 		}
@@ -141,11 +159,14 @@ export class KeepDropModifier extends Resolver {
 	#action;
 	#direction;
 	#howMany;
-	constructor(action : "keep" | "drop" | undefined, direction : "highest" | "lowest" | undefined, howMany : Number | undefined, ast : AST){
+	constructor(action : "keep" | "drop" | undefined, direction : "highest" | "lowest" | undefined, howMany : Resolver | undefined, ast : AST){
 		super(NaN, ast);
 		this.#action = action ?? "keep";
 		this.#direction = direction ?? "highest";
 		this.#howMany = howMany ?? new StaticR(1);
+	}
+	get rolls(){
+		return this.#howMany.rolls;
 	}
 	modify(resultSet : Number[]) : Number[]{
 		let sorted = resultSet.sort();
@@ -185,22 +206,30 @@ export class RerollModifier extends Resolver {
 	#comparisonMode;
 	#comparisonValue;
 	#limit;
-	constructor(comparisonMode : comparisonStr | undefined, comparisonValue : Number | undefined, limit : Number | undefined, ast : AST){
+	constructor(comparisonMode : comparisonStr | undefined, comparisonValue : Resolver | undefined, limit : Resolver | undefined, ast : AST){
 		super(NaN, ast);
 		this.#comparisonMode = comparisonMode ?? "=";
 		this.#comparisonValue = comparisonValue;
 		this.#limit = limit ?? new StaticR(1);
 	}
-	modify(resultSet : Number[], baseRoll : {min: Number, max : Number}){
+	get rolls(){
+		let concatVal : Number[] = [];
+		if(this.#comparisonValue !== undefined){
+			concatVal = this.#comparisonValue.rolls;
+		}
+		return this.#limit.rolls.concat(concatVal);
+	}
+	modify(resultSet : Number[], baseRoll : {min: Resolver, max : Resolver}){
 		this.#comparisonValue = this.#comparisonValue ?? baseRoll.min;
 		let compare = compareFunc(this.#comparisonMode, this.#comparisonValue);
 		for(let i = this.#limit.valueOf(); i > 0; i--){
 			let totalRolls = resultSet.length;
 			let keptRolls = resultSet.filter((e) => ! compare(e));
-			let needRolls = totalRolls - keptRolls.length;
-			if(needRolls === 0){
+			let needRollsNumber = totalRolls - keptRolls.length;
+			if(needRollsNumber === 0){
 				continue;
 			}
+			let needRolls = new StaticR(needRollsNumber);
 			let emptyMods = new RollSetModifiersR([], new grammer.RollSetModifiers());
 			let diceAst = new grammer.DiceRoll(1, 1, 1, []);
 			let addToSet = new DiceRollR(needRolls, baseRoll.min, baseRoll.max, emptyMods, diceAst);
@@ -215,13 +244,20 @@ export class ExplodeModifier extends Resolver {
 	#comparisonMode;
 	#comparisonValue;
 	#limit;
-	constructor(comparisonMode : comparisonStr | undefined, comparisonValue : Number | undefined, limit : Number | undefined, ast : AST){
+	constructor(comparisonMode : comparisonStr | undefined, comparisonValue : Resolver | undefined, limit : Resolver | undefined, ast : AST){
 		super(NaN, ast);
 		this.#comparisonMode = comparisonMode ?? "=";
 		this.#comparisonValue = comparisonValue;
 		this.#limit = limit ?? new StaticR(10000)
 	}
-	modify(rolls : Number[], baseRoll : {min: Number, max: Number}){
+	get rolls(){
+		let concatVal : Number[] = [];
+		if(this.#comparisonValue !== undefined){
+			concatVal = this.#comparisonValue.rolls;
+		}
+		return this.#limit.rolls.concat(concatVal);
+	}
+	modify(rolls : Number[], baseRoll : {min: Resolver, max: Resolver}){
 		let count = 0;
 		let compareValue = this.#comparisonValue ?? baseRoll.max;
 		let compare = compareFunc(this.#comparisonMode, compareValue);
@@ -229,13 +265,13 @@ export class ExplodeModifier extends Resolver {
 		let done = exploding.length === 0;
 		while(!done){
 			let explodingCount = exploding.length;
-			let dice = new DiceRollR(explodingCount, baseRoll.min, baseRoll.max, new RollSetModifiersR([], new grammer.RollSetModifiers([])), new grammer.DiceRoll(1, 1, 1, []));
+			let dice = new DiceRollR(new StaticR(explodingCount), new StaticR(baseRoll.min.valueOf()), new StaticR(baseRoll.max.valueOf()), new RollSetModifiersR([], new grammer.RollSetModifiers([])), new grammer.DiceRoll(1, 1, 1, []));
 			let exploded = dice.rolls;
 			rolls = rolls.concat(exploded);
 			exploding = exploded.filter((e) => compare(e));
 			if(this.#limit !== null){
 				count++;
-				if(this.#limit === count){
+				if(this.#limit.valueOf() === count){
 					done = true;
 				}
 			}
@@ -258,6 +294,9 @@ export class RounderR extends Resolver {
 	}
 	get thingRounded(){
 		return this.#thingRounded;
+	}
+	get rolls(){
+		return this.#thingRounded.rolls;
 	}
 	static modeToFunc(mode : string){
 		if(mode === "f"){
@@ -310,6 +349,9 @@ export class MathOpR extends Resolver {
 			return new MathOpR(this.op, this.#operand, this.ast);
 		}
 	}
+	get rolls(){
+		return this.#operand.rolls;
+	}
 	eval(acc : Number){
 		return this.#opFunc(acc.valueOf());
 	}
@@ -323,6 +365,10 @@ export class MathOpListR extends Resolver {
 	}
 	get ops(){
 		return this.#ops;
+	}
+	get rolls(){
+		let deep = this.#ops.map((o) => o.rolls);
+		return deep.flatMap((e) => e);
 	}
 	eval(initial : Resolver){
 		let commutables = this.#ops.map((o) => o.commute);
@@ -362,6 +408,9 @@ export class MathSeqR extends Resolver {
 	get ops(){
 		return this.#ops;
 	}
+	get rolls(){
+		return this.#head.rolls.concat(this.#ops.rolls);
+	}
 }
 
 export class ParensR extends Resolver {
@@ -372,6 +421,9 @@ export class ParensR extends Resolver {
 	}
 	get expression(){
 		return this.#expression;
+	}
+	get rolls(){
+		return this.#expression.rolls;
 	}
 }
 
@@ -608,7 +660,7 @@ function eval_diceroll(ast : grammerTypes.DiceRoll, keyMap : Partial<Record<keyo
 		throw('dice rolls _must_ have at least a max defined');
 	}
 	let mods : RollSetModifiersR = (keyMap.modifiers as RollSetModifiersR) ?? new RollSetModifiersR([], new grammer.RollSetModifers([]));
-	return new DiceRollR(keyMap.rolls ?? new StaticR(1), keyMap.min ?? new StaticR(1), keyMap.max, mods, ast);
+	return new DiceRollR(keyMap.x ?? new StaticR(1), keyMap.min ?? new StaticR(1), keyMap.max, mods, ast);
 }
 
 function eval_default<T extends AST>(key : keyof T | undefined, thing : T){
@@ -629,7 +681,7 @@ function eval_default<T extends AST>(key : keyof T | undefined, thing : T){
 		// TODO may this never be called.
 		return new StaticR(1);
 	}
-	if(thing instanceof grammer.DiceRoll && key === "rolls"){
+	if(thing instanceof grammer.DiceRoll && key === "x"){
 		return new StaticR(1);
 	}
 	if(thing instanceof grammer.DiceRoll && key === "min"){
