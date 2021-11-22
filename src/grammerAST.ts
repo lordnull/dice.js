@@ -162,18 +162,18 @@ type AsInteger
 	| Rounder;
 
 export class DiceRoll implements AST {
-	#rolls : OrUndef<AsInteger>
+	#x : OrUndef<AsInteger>
 	#min : OrUndef<AsInteger>
 	#max : OrUndef<AsInteger>
 	#modifiers : OrUndef<RollSetModifiers>
-	constructor(rolls : OrUndef<AsInteger>, min : OrUndef<AsInteger>, max: OrUndef<AsInteger>, modifiers : OrUndef<RollSetModifiers>){
-		this.#rolls = rolls;
+	constructor(x : OrUndef<AsInteger>, min : OrUndef<AsInteger>, max: OrUndef<AsInteger>, modifiers : OrUndef<RollSetModifiers>){
+		this.#x = x;
 		this.#min = min;
 		this.#max = max;
 		this.#modifiers;
 	}
-	get rolls(){
-		return this.#rolls;
+	get x(){
+		return this.#x;
 	}
 	get min(){
 		return this.#min;
@@ -186,7 +186,7 @@ export class DiceRoll implements AST {
 	}
 	children(){
 		let keys =
-			[ ('rolls' as PropEntry<this>)
+			[ ('x' as PropEntry<this>)
 			, ('min' as PropEntry<this>)
 			, ('max' as PropEntry<this>)
 			, ('modifiers' as PropEntry<this>)

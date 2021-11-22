@@ -202,6 +202,9 @@ class Resolver extends Number {
         super(n);
         this.ast = ast;
     }
+    get rolls() {
+        return [];
+    }
 }
 exports.Resolver = Resolver;
 class StaticR extends Resolver {
@@ -270,7 +273,13 @@ class DiceRollR extends Resolver {
         return __classPrivateFieldGet(this, _DiceRollR_max, "f");
     }
     get rolls() {
-        return __classPrivateFieldGet(this, _DiceRollR_rolls, "f");
+        let minRolls = this.min.rolls;
+        let maxRolls = this.max.rolls;
+        let xRolls = this.x.rolls;
+        let modRolls = this.modifiers.rolls;
+        let myRolls = __classPrivateFieldGet(this, _DiceRollR_rolls, "f");
+        let deep = new Array(xRolls, minRolls, maxRolls, modRolls, myRolls);
+        return deep.flatMap((e) => e);
     }
     get modifiers() {
         return __classPrivateFieldGet(this, _DiceRollR_modifiers, "f");
@@ -290,9 +299,9 @@ class DiceRollR extends Resolver {
         return rndNumber;*/
     }
     ;
-    static resultSet(rolls, min, max) {
+    static resultSet(x, min, max) {
         let out = [];
-        for (let i = 0; i < rolls; i++) {
+        for (let i = 0; i < x.valueOf(); i++) {
             out.push(new Number(DiceRollR.rand(min, max)));
         }
         return out;
@@ -303,9 +312,9 @@ class DiceRollR extends Resolver {
     static sum(resultSet) {
         return resultSet.reduce((a, e) => a + e.valueOf(), 0);
     }
-    static initVal(rolls, min, max, modifiers) {
-        let resultSet = DiceRollR.resultSet(rolls !== null && rolls !== void 0 ? rolls : 1, min !== null && min !== void 0 ? min : 1, max);
-        resultSet = DiceRollR.applyModifiers(resultSet, modifiers, { rolls, min, max });
+    static initVal(x, min, max, modifiers) {
+        let resultSet = DiceRollR.resultSet(x !== null && x !== void 0 ? x : new StaticR(1), min !== null && min !== void 0 ? min : new StaticR(1), max);
+        resultSet = DiceRollR.applyModifiers(resultSet, modifiers, { x, min, max });
         resultSetInstance = resultSet;
         let sum = DiceRollR.sum(resultSet);
         return sum;
@@ -318,6 +327,13 @@ class RollSetModifiersR extends Resolver {
         super(NaN, ast);
         _RollSetModifiersR_mods.set(this, []);
         __classPrivateFieldSet(this, _RollSetModifiersR_mods, mods, "f");
+    }
+    get rolls() {
+        let deep = __classPrivateFieldGet(this, _RollSetModifiersR_mods, "f").map((m) => m.rolls);
+        return deep.flatMap((e) => e);
+    }
+    get mods() {
+        return __classPrivateFieldGet(this, _RollSetModifiersR_mods, "f");
     }
     modify(resultSet, baseDice) {
         let reducer = (a, m) => {
@@ -337,6 +353,9 @@ class KeepDropModifier extends Resolver {
         __classPrivateFieldSet(this, _KeepDropModifier_action, action !== null && action !== void 0 ? action : "keep", "f");
         __classPrivateFieldSet(this, _KeepDropModifier_direction, direction !== null && direction !== void 0 ? direction : "highest", "f");
         __classPrivateFieldSet(this, _KeepDropModifier_howMany, howMany !== null && howMany !== void 0 ? howMany : new StaticR(1), "f");
+    }
+    get rolls() {
+        return __classPrivateFieldGet(this, _KeepDropModifier_howMany, "f").rolls;
     }
     modify(resultSet) {
         let sorted = resultSet.sort();
@@ -379,6 +398,13 @@ class RerollModifier extends Resolver {
         __classPrivateFieldSet(this, _RerollModifier_comparisonValue, comparisonValue, "f");
         __classPrivateFieldSet(this, _RerollModifier_limit, limit !== null && limit !== void 0 ? limit : new StaticR(1), "f");
     }
+    get rolls() {
+        let concatVal = [];
+        if (__classPrivateFieldGet(this, _RerollModifier_comparisonValue, "f") !== undefined) {
+            concatVal = __classPrivateFieldGet(this, _RerollModifier_comparisonValue, "f").rolls;
+        }
+        return __classPrivateFieldGet(this, _RerollModifier_limit, "f").rolls.concat(concatVal);
+    }
     modify(resultSet, baseRoll) {
         var _a;
         __classPrivateFieldSet(this, _RerollModifier_comparisonValue, (_a = __classPrivateFieldGet(this, _RerollModifier_comparisonValue, "f")) !== null && _a !== void 0 ? _a : baseRoll.min, "f");
@@ -386,10 +412,11 @@ class RerollModifier extends Resolver {
         for (let i = __classPrivateFieldGet(this, _RerollModifier_limit, "f").valueOf(); i > 0; i--) {
             let totalRolls = resultSet.length;
             let keptRolls = resultSet.filter((e) => !compare(e));
-            let needRolls = totalRolls - keptRolls.length;
-            if (needRolls === 0) {
+            let needRollsNumber = totalRolls - keptRolls.length;
+            if (needRollsNumber === 0) {
                 continue;
             }
+            let needRolls = new StaticR(needRollsNumber);
             let emptyMods = new RollSetModifiersR([], new grammer.RollSetModifiers());
             let diceAst = new grammer.DiceRoll(1, 1, 1, []);
             let addToSet = new DiceRollR(needRolls, baseRoll.min, baseRoll.max, emptyMods, diceAst);
@@ -411,6 +438,13 @@ class ExplodeModifier extends Resolver {
         __classPrivateFieldSet(this, _ExplodeModifier_comparisonValue, comparisonValue, "f");
         __classPrivateFieldSet(this, _ExplodeModifier_limit, limit !== null && limit !== void 0 ? limit : new StaticR(10000), "f");
     }
+    get rolls() {
+        let concatVal = [];
+        if (__classPrivateFieldGet(this, _ExplodeModifier_comparisonValue, "f") !== undefined) {
+            concatVal = __classPrivateFieldGet(this, _ExplodeModifier_comparisonValue, "f").rolls;
+        }
+        return __classPrivateFieldGet(this, _ExplodeModifier_limit, "f").rolls.concat(concatVal);
+    }
     modify(rolls, baseRoll) {
         var _a;
         let count = 0;
@@ -420,13 +454,13 @@ class ExplodeModifier extends Resolver {
         let done = exploding.length === 0;
         while (!done) {
             let explodingCount = exploding.length;
-            let dice = new DiceRollR(explodingCount, baseRoll.min, baseRoll.max, new RollSetModifiersR([], new grammer.RollSetModifiers([])), new grammer.DiceRoll(1, 1, 1, []));
+            let dice = new DiceRollR(new StaticR(explodingCount), new StaticR(baseRoll.min.valueOf()), new StaticR(baseRoll.max.valueOf()), new RollSetModifiersR([], new grammer.RollSetModifiers([])), new grammer.DiceRoll(1, 1, 1, []));
             let exploded = dice.rolls;
             rolls = rolls.concat(exploded);
             exploding = exploded.filter((e) => compare(e));
             if (__classPrivateFieldGet(this, _ExplodeModifier_limit, "f") !== null) {
                 count++;
-                if (__classPrivateFieldGet(this, _ExplodeModifier_limit, "f") === count) {
+                if (__classPrivateFieldGet(this, _ExplodeModifier_limit, "f").valueOf() === count) {
                     done = true;
                 }
             }
@@ -450,6 +484,9 @@ class RounderR extends Resolver {
     }
     get thingRounded() {
         return __classPrivateFieldGet(this, _RounderR_thingRounded, "f");
+    }
+    get rolls() {
+        return __classPrivateFieldGet(this, _RounderR_thingRounded, "f").rolls;
     }
     static modeToFunc(mode) {
         if (mode === "f") {
@@ -507,6 +544,9 @@ class MathOpR extends Resolver {
             return new MathOpR(this.op, __classPrivateFieldGet(this, _MathOpR_operand, "f"), this.ast);
         }
     }
+    get rolls() {
+        return __classPrivateFieldGet(this, _MathOpR_operand, "f").rolls;
+    }
     eval(acc) {
         return __classPrivateFieldGet(this, _MathOpR_opFunc, "f").call(this, acc.valueOf());
     }
@@ -521,6 +561,10 @@ class MathOpListR extends Resolver {
     }
     get ops() {
         return __classPrivateFieldGet(this, _MathOpListR_ops, "f");
+    }
+    get rolls() {
+        let deep = __classPrivateFieldGet(this, _MathOpListR_ops, "f").map((o) => o.rolls);
+        return deep.flatMap((e) => e);
     }
     eval(initial) {
         let commutables = __classPrivateFieldGet(this, _MathOpListR_ops, "f").map((o) => o.commute);
@@ -560,6 +604,9 @@ class MathSeqR extends Resolver {
     get ops() {
         return __classPrivateFieldGet(this, _MathSeqR_ops, "f");
     }
+    get rolls() {
+        return __classPrivateFieldGet(this, _MathSeqR_head, "f").rolls.concat(__classPrivateFieldGet(this, _MathSeqR_ops, "f").rolls);
+    }
 }
 exports.MathSeqR = MathSeqR;
 _MathSeqR_ops = new WeakMap(), _MathSeqR_head = new WeakMap();
@@ -571,6 +618,9 @@ class ParensR extends Resolver {
     }
     get expression() {
         return __classPrivateFieldGet(this, _ParensR_expression, "f");
+    }
+    get rolls() {
+        return __classPrivateFieldGet(this, _ParensR_expression, "f").rolls;
     }
 }
 exports.ParensR = ParensR;
@@ -781,7 +831,7 @@ function eval_diceroll(ast, keyMap) {
         throw ('dice rolls _must_ have at least a max defined');
     }
     let mods = (_a = keyMap.modifiers) !== null && _a !== void 0 ? _a : new RollSetModifiersR([], new grammer.RollSetModifers([]));
-    return new DiceRollR((_b = keyMap.rolls) !== null && _b !== void 0 ? _b : new StaticR(1), (_c = keyMap.min) !== null && _c !== void 0 ? _c : new StaticR(1), keyMap.max, mods, ast);
+    return new DiceRollR((_b = keyMap.x) !== null && _b !== void 0 ? _b : new StaticR(1), (_c = keyMap.min) !== null && _c !== void 0 ? _c : new StaticR(1), keyMap.max, mods, ast);
 }
 function eval_default(key, thing) {
     if (thing instanceof grammer.KeepDrop && key === "howMany") {
@@ -801,7 +851,7 @@ function eval_default(key, thing) {
         // TODO may this never be called.
         return new StaticR(1);
     }
-    if (thing instanceof grammer.DiceRoll && key === "rolls") {
+    if (thing instanceof grammer.DiceRoll && key === "x") {
         return new StaticR(1);
     }
     if (thing instanceof grammer.DiceRoll && key === "min") {
@@ -867,7 +917,7 @@ var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (
     if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
     return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
 };
-var _Static_value, _Lookup_lookupName, _RollSetModifiers_mods, _RollSetModifiers_kidKeys, _KeepDrop_action, _KeepDrop_direction, _KeepDrop_howMany, _ReRoll_comparisonStr, _ReRoll_compareToVal, _ReRoll_limit, _Explode_comparisonStr, _Explode_compareToVal, _Explode_limit, _DiceRoll_rolls, _DiceRoll_min, _DiceRoll_max, _DiceRoll_modifiers, _Rounder_roundType, _Rounder_thingToRound, _MathOp_opStr, _MathOp_val, _MathOpList_ops, _MathOpList_kidKeys, _MathSeq_ops, _MathSeq_head, _Parens_expression;
+var _Static_value, _Lookup_lookupName, _RollSetModifiers_mods, _RollSetModifiers_kidKeys, _KeepDrop_action, _KeepDrop_direction, _KeepDrop_howMany, _ReRoll_comparisonStr, _ReRoll_compareToVal, _ReRoll_limit, _Explode_comparisonStr, _Explode_compareToVal, _Explode_limit, _DiceRoll_x, _DiceRoll_min, _DiceRoll_max, _DiceRoll_modifiers, _Rounder_roundType, _Rounder_thingToRound, _MathOp_opStr, _MathOp_val, _MathOpList_ops, _MathOpList_kidKeys, _MathSeq_ops, _MathSeq_head, _Parens_expression;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Parens = exports.MathSeq = exports.MathOpList = exports.MathOp = exports.Rounder = exports.DiceRoll = exports.Explode = exports.ReRoll = exports.KeepDrop = exports.RollSetModifiers = exports.Lookup = exports.Static = void 0;
 class Static {
@@ -1006,18 +1056,18 @@ class Explode {
 exports.Explode = Explode;
 _Explode_comparisonStr = new WeakMap(), _Explode_compareToVal = new WeakMap(), _Explode_limit = new WeakMap();
 class DiceRoll {
-    constructor(rolls, min, max, modifiers) {
-        _DiceRoll_rolls.set(this, void 0);
+    constructor(x, min, max, modifiers) {
+        _DiceRoll_x.set(this, void 0);
         _DiceRoll_min.set(this, void 0);
         _DiceRoll_max.set(this, void 0);
         _DiceRoll_modifiers.set(this, void 0);
-        __classPrivateFieldSet(this, _DiceRoll_rolls, rolls, "f");
+        __classPrivateFieldSet(this, _DiceRoll_x, x, "f");
         __classPrivateFieldSet(this, _DiceRoll_min, min, "f");
         __classPrivateFieldSet(this, _DiceRoll_max, max, "f");
         __classPrivateFieldGet(this, _DiceRoll_modifiers, "f");
     }
-    get rolls() {
-        return __classPrivateFieldGet(this, _DiceRoll_rolls, "f");
+    get x() {
+        return __classPrivateFieldGet(this, _DiceRoll_x, "f");
     }
     get min() {
         return __classPrivateFieldGet(this, _DiceRoll_min, "f");
@@ -1029,7 +1079,7 @@ class DiceRoll {
         return __classPrivateFieldGet(this, _DiceRoll_modifiers, "f");
     }
     children() {
-        let keys = ['rolls',
+        let keys = ['x',
             'min',
             'max',
             'modifiers'
@@ -1038,7 +1088,7 @@ class DiceRoll {
     }
 }
 exports.DiceRoll = DiceRoll;
-_DiceRoll_rolls = new WeakMap(), _DiceRoll_min = new WeakMap(), _DiceRoll_max = new WeakMap(), _DiceRoll_modifiers = new WeakMap();
+_DiceRoll_x = new WeakMap(), _DiceRoll_min = new WeakMap(), _DiceRoll_max = new WeakMap(), _DiceRoll_modifiers = new WeakMap();
 class Rounder {
     constructor(type, thingToRound) {
         _Rounder_roundType.set(this, "r");
@@ -3140,7 +3190,13 @@ function res_format_steps(res) {
     }
     if (res instanceof evaluate.DiceRollR) {
         let d = res;
-        return [() => num_dice(d), () => dice_mode(d), () => minmax(d), () => dice_modifiers(d.modifiers)];
+        let out = [() => num_dice(d),
+            () => dice_mode(d),
+            () => minmax(d),
+            () => dice_modifiers(d.modifiers),
+            () => dice_result_set(d)
+        ];
+        return out;
     }
     if (res instanceof evaluate.RollSetModifiersR) {
         let mods = res;
@@ -3171,24 +3227,58 @@ function res_format_steps(res) {
     }
     if (res instanceof evaluate.MathSeqR) {
         let m = res;
-        let top = m.valueOf().toString();
         let headEval = () => res_format_steps(m.head);
+        let headSpce = () => {
+            if (m.ops.ops.length === 0) {
+                return [];
+            }
+            else {
+                return [" "];
+            }
+        };
         let opsEval = () => res_format_steps(m.ops);
-        return [top, ":", headEval, opsEval];
+        return [headEval, headSpce, opsEval];
     }
     throw ('unformatabled!');
 }
 function num_dice(diceroll) {
-    return ["500"];
+    if (diceroll.ast.x) {
+        return [() => {
+                return res_format_steps(diceroll.x);
+            }];
+    }
+    else {
+        return [];
+    }
 }
 function dice_mode(diceroll) {
+    if (diceroll.modifiers.mods.length === 0) {
+        return ["d"];
+    }
     return ["q"];
 }
 function minmax(diceroll) {
-    return ["77..32"];
+    if (diceroll.ast.min === undefined) {
+        return [() => res_format_steps(diceroll.max)];
+    }
+    else {
+        let out = [() => res_format_steps(diceroll.min),
+            "..",
+            () => res_format_steps(diceroll.max)
+        ];
+        return out;
+    }
 }
 function dice_modifiers(mods) {
-    return [":rr99"];
+    if (mods.ast.mods === undefined) {
+        return [];
+    }
+    else if (mods.mods.length === 0) {
+        return [];
+    }
+    else {
+        return ["!!!mods listing not yet complete!!!"];
+    }
 }
 function keep_drop_modifier(mod) {
     return ["keep highest 27"];
@@ -3198,6 +3288,15 @@ function reroll_modifier(mod) {
 }
 function explode_modifier(mod) {
     return ["explode =7 8x"];
+}
+function dice_result_set(diceroll) {
+    let out = [":[",
+        () => {
+            return [diceroll.rolls.join(', ')];
+        },
+        "]"
+    ];
+    return out;
 }
 
 },{"./evaluate":3,"./grammerAST":4}]},{},[2])(2)

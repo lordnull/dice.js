@@ -127,7 +127,14 @@ function res_format_steps(res : Resolver) : FormatSteps {
 	}
 	if(res instanceof evaluate.DiceRollR){
 		let d = (res as evalTypes.DiceRollR);
-		return [() => num_dice(d), () => dice_mode(d), () => minmax(d), () => dice_modifiers(d.modifiers) ]
+		let out =
+			[ () => num_dice(d)
+			, () => dice_mode(d)
+			, () => minmax(d)
+			, () => dice_modifiers(d.modifiers)
+			, () => dice_result_set(d)
+			];
+		return out;
 	}
 	if(res instanceof evaluate.RollSetModifiersR){
 		let mods = (res as evalTypes.RollSetModifiersR);
@@ -158,28 +165,58 @@ function res_format_steps(res : Resolver) : FormatSteps {
 	}
 	if(res instanceof evaluate.MathSeqR){
 		let m = (res as evalTypes.MathSeqR);
-		let top = m.valueOf().toString();
 		let headEval = () => res_format_steps(m.head);
+		let headSpce = () => {
+			if(m.ops.ops.length === 0){
+				return [];
+			} else {
+				return [ " " ];
+			}
+		}
 		let opsEval = () => res_format_steps(m.ops);
-		return [top, ":", headEval, opsEval];
+		return [headEval, headSpce, opsEval];
 	}
 	throw('unformatabled!');
 }
 
-function num_dice(diceroll : evalTypes.DiceRollR) {
-	return ["500"];
+function num_dice(diceroll : evalTypes.DiceRollR) : FormatSteps {
+	if((diceroll.ast as grammerTypes.DiceRoll).x){
+		return [ () => {
+			return res_format_steps(diceroll.x);
+		} ]
+	} else {
+		return [];
+	}
 }
 
 function dice_mode(diceroll : evalTypes.DiceRollR){
+	if(diceroll.modifiers.mods.length === 0){
+		return ["d"];
+	}
 	return ["q"];
 }
 
 function minmax(diceroll : evalTypes.DiceRollR){
-	return ["77..32"];
+	if((diceroll.ast as grammerTypes.DiceRoll).min === undefined){
+		return [ () => res_format_steps(diceroll.max) ];
+	} else {
+		let out =
+			[ () => res_format_steps(diceroll.min)
+			, ".."
+			, () => res_format_steps(diceroll.max)
+			];
+		return out;
+	}
 }
 
 function dice_modifiers(mods : evalTypes.RollSetModifiersR){
-	return [":rr99"];
+	if((mods.ast as grammerTypes.RollSetModifiers).mods === undefined){
+		return [];
+	} else if(mods.mods.length === 0){
+		return [];
+	} else {
+		return ["!!!mods listing not yet complete!!!"];
+	}
 }
 
 function keep_drop_modifier(mod : evalTypes.KeepDropModifier){
@@ -192,4 +229,15 @@ function reroll_modifier(mod : evalTypes.RerollModifier){
 
 function explode_modifier(mod : evalTypes.ExplodeModifier){
 	return ["explode =7 8x"];
+}
+
+function dice_result_set(diceroll : evalTypes.DiceRollR){
+	let out =
+		[ ":["
+		, () => {
+			return [ diceroll.rolls.join(', ') ]
+		}
+		, "]"
+		];
+	return out;
 }
