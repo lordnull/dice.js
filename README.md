@@ -69,7 +69,7 @@ familiar:
 
     1d20 + 10
 
-That is a valid statement for a dice roll. The 'd' seperator is case insensitve:
+That is a valid statement for a dice roll. The 'd' separator is case insensitive:
 
     1D20 + 10
 
@@ -179,7 +179,7 @@ Note how we allow spaces in the name. The only characters explicitly disallowed
 are `[` and `]`.
 
 If the scope contains values that are not integers, like 1.5, You can use one of
-the built-in rounding funtions. Preface the variable box with `f` for round
+the built-in rounding functions. Preface the variable box with `f` for round
 down (floor), `c` for round up (ceiling), or `r` for round to nearest.
 
     1d20 + f[Half Level]
@@ -201,8 +201,8 @@ For more advanced usage, scopes can be nested.
     var result = dice.roll("[takes.priority] + [nested.value]", scope);
     result == 10; // because we look for an exact match of property name first
 
-Subexpressions
---------------
+Sub-expressions
+---------------
 
 The Usual `+`, `-`, `*` and `/` are supported, with order of operations being
 observed: `*` and `/` done in order, then `+` and `-`.
@@ -210,7 +210,7 @@ observed: `*` and `/` done in order, then `+` and `-`.
 If this is not desired, or you want to do some math where an integer would go,
 you can use a parenthesis expression. As with scopes, we can prepend them with
 the rounding flags `f`, `c`, and `r`. The rounding is required when using a
-subexpression where an integer is expected.
+sub-expression where an integer is expected.
 
 For example, the half level from the scope example above could be re-written
 without needing an explicit half level on the scope.
@@ -225,7 +225,7 @@ Roll Modifiers
 --------------
 
 Many DnD players are familiar with the "4 dice, drop lowest" method of rolling
-character attributes. While this can be achieved in javascript with some code
+character attributes. While this can be achieved in JavaScript with some code
 and inspecting the results, the goal is to allow many rolls to be written
 without needing to know how to code. This is where roll modifiers come in.
 
@@ -298,7 +298,7 @@ dice, just define `d2..6`.
 
     'reroll' condition limit
 
-A condition is a number (the comparitor) optionally preceeded by any one of the
+A condition is a number (the comparitor) optionally preceded by any one of the
 following:
 * `=`: the roll is exactly the comparitor.
 * `!=`: the roll is anything _but_ the comparitor.
@@ -324,7 +324,7 @@ is not met, or the limit is met.
 
 The long form is similar to reroll.
 
-A condition is a number (the comparitor) optionally preceeded by any one of the
+A condition is a number (the comparitor) optionally preceded by any one of the
 following:
 * `=`: the roll is exactly the comparitor.
 * `!=`: the roll is anything _but_ the comparitor.
@@ -364,15 +364,12 @@ Using `dice.statistics(rollString, scope, samples)` returns an object:
     }
 ```
 
-When using exploding dice, the min_possible and max_possible do not have a
-practical meaning when the eplosion has no limit. Thus, explosions are omitted
-from analysis. Rerolls have limits, thus can statistically have the condition
-occur, and so also are ommited from the results. Keep and Drop, because they
-actually change the result set in a deterministic way, are used.
+Currently the only roll modifiers considered during the statistics are the keep
+and drop modifiers.
 
 Contributing
 ============
 
-Fork and make a pull request with relavent tests. Opening issues is also
+Fork and make a pull request with relevant tests. Opening issues is also
 welcome.
 
