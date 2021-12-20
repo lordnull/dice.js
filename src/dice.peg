@@ -42,18 +42,21 @@ diceroll
 		return new ast.DiceRoll(x ?? undefined, undefined, max, mods ?? undefined);
 	}
 	/ x:intVal? [wW] min:intVal ".." max:intVal mods:rollModifiers? {
-		let wildMod = new ast.Explode("=", max, 10000, min, max);
+		mods = mods ?? [];
+		let wildMod = new ast.Explode("=", max, undefined, min, max);
 		mods.unshift(wildMod);
-		return new ast.DiceRoll(x ?? undefined, min, max, mods);
+		let properMods = new ast.RollSetModifiers(mods);
+		return new ast.DiceRoll(x ?? undefined, min, max, properMods);
 	}
 	/ x:intVal? [wW] max:intVal maybeMods:rollModifiers? {
 		let mods = maybeMods ?? [];
-		let wildMod = new ast.Explode("=", max, 10000, 1, max);
+		let wildMod = new ast.Explode("=", max, undefined, 1, max);
 		mods.unshift(wildMod);
-		return new ast.DiceRoll(x ?? undefined, undefined, max, mods);
+		let properMods = new ast.RollSetModifiers(mods);
+		return new ast.DiceRoll(x ?? undefined, undefined, max, properMods);
 	}
 	/ min:intVal ".." max:intVal rollModifiers? {
-		return new ast.DiceRoll(undefined, min, max, []);
+		return new ast.DiceRoll(undefined, min, max, rollModifiers ?? undefined);
 	}
 
 rollModifiers
@@ -66,13 +69,13 @@ simpleModifiers
 	= ":" kd:[kKdD] maybe_hl:[hHlL]? maybe_howMany:intVal? {
 		let defaultDiceType = "highest";
 		let action = "keep";
-		if(kd.toLower() === "d"){
+		if(kd.toLowerCase() === "d"){
 			action = "drop"
-			defaultDicetype = "lowest"
+			defaultDiceType = "lowest"
 		}
 		let diceType = defaultDiceType;
 		if(maybe_hl){
-			if(maybe_hl.toLower() === "l"){
+			if(maybe_hl.toLowerCase() === "l"){
 				diceType = "lowest";
 			} else {
 				diceType = "highest";
@@ -84,7 +87,7 @@ simpleModifiers
 	/ ":" dt:[hHlL] maybe_howMany:intVal? {
 		let action = "keep";
 		let diceType = "highest";
-		if(dt.toLower() === "h"){
+		if(dt.toLowerCase() === "h"){
 			action = "keep";
 			diceType = "highest";
 		} else {
@@ -96,7 +99,7 @@ simpleModifiers
 	}
 	/ ":rr" maybe_limit:intVal? {
 		let limit = maybe_limit ?? undefined;
-		return new ast.Reroll("=", undefined, undefined);
+		return new ast.ReRoll("=", undefined, undefined);
 	}
 
 fullModifiers
@@ -117,36 +120,55 @@ modifier
 
 keepDropModifier
 	= action:("keep" / "drop") dt:(need_ws "highest" / need_ws "lowest") maybe_howMany:(need_ws intVal)?{
-		let howMany = maybe_howMany ?? undefined;
+		let howMany = maybe_howMany[1] ?? undefined;
+		dt = dt[1];
 		return new ast.KeepDrop(action, dt, howMany);
 	}
 
 explodeModifier
-	= "explode" maybe_compare:(need_ws @comparison opt_ws @intVal)? maybe_limit:(need_ws @intVal "x")? {
-		maybeCompare = maybeCompare ?? [undefined, undefined];
-		let compareStr = maybeCompare[0] ?? undefined;
-		let compareVal = maybeCompare[1] ?? undefined;
-		return ast.Explode(compareStr, compareVal, maybe_limit ?? undefined);
+	= "explode" need_ws compareStr:comparison opt_ws compareVal:intVal need_ws limit:intVal "x" {
+		return new ast.Explode(compareStr, compareVal, limit);
 	}
+	/ "explode" need_ws compareStr:comparison opt_ws compareVal:intVal {
+		return new ast.Explode(compareStr, compareVal, undefined);
+	}
+	/ "explode" need_ws compareStr:comparison need_ws limit:intVal "x" {
+		return new ast.Explode(compareStr, undefined, limit);
+	}
+	/ "explode" need_ws compareVal:intVal need_ws limit:intVal "x" {
+		return new ast.Explode(undefined, compareVal, limit);
+	}
+	/ "explode" need_ws limit:intVal "x" {
+		return new ast.Explode(undefined, undefined, limit);
+	}
+	/ "explode" {
+		return new ast.Explode(undefined, undefined, undefined);
+	}
+	/*= "explode" maybe_compare:(need_ws @comparison opt_ws @intVal)? maybe_limit:(need_ws @intVal "x")? {
+		maybe_compare = maybe_compare ?? [undefined, undefined];
+		let compareStr = maybe_compare[0] ?? undefined;
+		let compareVal = maybe_compare[1] ?? undefined;
+		return new ast.Explode(compareStr, compareVal, maybe_limit ?? undefined);
+	}*/
 
 rerollModifier
 	= "reroll" opt_ws compareStr:comparison opt_ws compareVal:intVal need_ws limit:intVal "x" {
-		return ast.Reroll(compareStr, compareVal, limit);
+		return new ast.ReRoll(compareStr, compareVal, limit);
 	}
 	/ "reroll" need_ws compareVal:intVal need_ws limit:intVal "x" {
-		return ast.Reroll(undefined, compareVal, limit);
+		return new ast.ReRoll(undefined, compareVal, limit);
 	}
 	/ "reroll" opt_ws compareStr:comparison opt_ws compareVal:intVal {
-		return ast.Reroll(compareStr, compareVal);
+		return new ast.ReRoll(compareStr, compareVal);
 	}
 	/ "reroll" need_ws limit:intVal "x" {
-		return ast.Reroll(undefined, undefined, limit);
+		return new ast.ReRoll(undefined, undefined, limit);
 	}
 	/ "reroll" need_ws compareVal:intVal {
-		return ast.Reroll(undefined, compareVal);
+		return new ast.ReRoll(undefined, compareVal);
 	}
 	/ "reroll" {
-		return ast.Reroll();
+		return new ast.ReRoll();
 	}
 
 comparison "comparison operator"

@@ -24,6 +24,9 @@ export class Static implements AST{
 	children(){
 		return [];
 	}
+	static is(a: AST) : a is Static {
+		return (a instanceof Static);
+	}
 }
 
 export class Lookup implements AST {
@@ -36,6 +39,9 @@ export class Lookup implements AST {
 	}
 	children(){
 		return [];
+	}
+	static is(a : any) : a is Lookup {
+		return (a instanceof Lookup);
 	}
 }
 
@@ -73,6 +79,9 @@ export class RollSetModifiers implements AST {
 		let out = this.#kidKeys.map(mapper);
 		return out;
 	}
+	static is(a : any) : a is RollSetModifiers {
+		return (a instanceof RollSetModifiers);
+	}
 }
 
 type RollSetModifier = KeepDrop | ReRoll | Explode;
@@ -99,6 +108,9 @@ export class KeepDrop implements AST {
 	}
 	children(){
 		return [('howMany' as PropEntry<this>)];
+	}
+	static is( a : any) : a is KeepDrop {
+		return (a instanceof KeepDrop);
 	}
 }
 
@@ -129,7 +141,10 @@ export class ReRoll implements AST {
 		return this.#limit;
 	}
 	children(){
-		return [('limit' as PropEntry<this>), ('comparToVal' as PropEntry<this>)];
+		return [('limit' as PropEntry<this>), ('compareToVal' as PropEntry<this>)];
+	}
+	static is(a : any) : a is ReRoll {
+		return ( a instanceof ReRoll);
 	}
 }
 
@@ -154,6 +169,9 @@ export class Explode implements AST {
 	children(){
 		return [('limit' as PropEntry<this>), ('compareToVal' as PropEntry<this>)];
 	}
+	static is(a:any):a is Explode{
+		return (a instanceof Explode);
+	}
 }
 
 type AsInteger
@@ -170,7 +188,7 @@ export class DiceRoll implements AST {
 		this.#x = x;
 		this.#min = min;
 		this.#max = max;
-		this.#modifiers;
+		this.#modifiers = modifiers;
 	}
 	get x(){
 		return this.#x;
@@ -193,6 +211,9 @@ export class DiceRoll implements AST {
 			];
 		return keys;
 	}
+	static is(a:any):a is DiceRoll{
+		return (a instanceof DiceRoll);
+	}
 }
 
 type RoundType = "c" | "f" | "r";
@@ -212,6 +233,9 @@ export class Rounder implements AST {
 	}
 	children(){
 		return [ ('thingToRound' as PropEntry<this>) ];
+	}
+	static is(a:AST):a is Rounder{
+		return (a instanceof Rounder);
 	}
 }
 
@@ -243,6 +267,9 @@ export class MathOp implements AST {
 	}
 	children(){
 		return [ ('val' as PropEntry<this>) ];
+	}
+	static is(a:any):a is MathOp{
+		return (a instanceof MathOp);
 	}
 }
 
@@ -277,6 +304,9 @@ export class MathOpList implements AST {
 		let out = this.#kidKeys.map(mapper);
 		return out;
 	}
+	static is (a:any):a is MathOpList{
+		return (a instanceof MathOpList);
+	}
 }
 
 export class MathSeq implements AST {
@@ -295,6 +325,9 @@ export class MathSeq implements AST {
 	children(){
 		return [ ('head' as PropEntry<this>), ('ops' as PropEntry<this>) ];
 	}
+	static is(a:any):a is MathSeq{
+		return (a instanceof MathSeq);
+	}
 }
 
 export class Parens implements AST {
@@ -308,4 +341,134 @@ export class Parens implements AST {
 	children(){
 		return [('expression' as PropEntry<this>)];
 	}
+	static is(a:any):a is Parens{
+		return (a instanceof Parens);
+	}
+}
+
+export type KeyMap<T extends AST, Acc> = Record<keyof T, Acc>;
+
+interface DefineDefault {
+	<T extends AST, A extends AST>(ast : T[], node : T, key: keyof T) : A;
+}
+interface TreeReducer<Acc> {
+	<T extends AST>(ast : T, keymap : KeyMap<T, Acc>) : Acc;
+}
+
+export class TreeWalkerStep<T extends AST, Acc> {
+	#currentNode: T;
+	#allKeys: Array<keyof T> = [];
+	#keyItor;
+	#currentKey : keyof T | undefined;
+	#keyMapAcc : Partial<KeyMap<T, Acc>> = {};
+	constructor(thing : T){
+		this.#currentNode = thing;
+		this.#allKeys = thing.children();
+		this.#keyItor = this.#allKeys.values();
+	}
+	get currentKey(){
+		if(this.#currentKey === undefined){
+			throw("No current key; may need to reset the iteration and call 'next'");
+		} else {
+			return this.#currentKey;
+		}
+	}
+	get currentValue(){
+		if(this.#currentKey === undefined){
+			return undefined;
+		}
+		return this.#currentNode[this.#currentKey];
+	}
+	get currentNode(){
+		return this.#currentNode;
+	}
+	get keymapSoFar(){
+		return this.#keyMapAcc;
+	}
+	get keymap() : KeyMap<T, Acc> {
+		let validator = (key : keyof T) => {
+			if(this.#keyMapAcc[key] === undefined){
+				throw(key + ' is not yet set');
+			}
+			return true;
+		}
+		this.#allKeys.forEach(validator);
+		let out = (this.#keyMapAcc as unknown as KeyMap<T, Acc>);
+		return out;
+	}
+	get allKeys(){
+		return this.#allKeys;
+	}
+	resetItor(){
+		this.#keyItor = this.#allKeys.values();
+		this.#currentKey = undefined;
+	}
+	next(){
+		let rawNext = this.#keyItor.next();
+		this.#currentKey = rawNext.value;
+		let outValue = {
+			key: this.#currentKey,
+			value: this.currentValue,
+			done: rawNext.done
+		}
+		return outValue;
+	}
+	setKey(key : keyof T, value : Acc){
+		this.#keyMapAcc[key] = value;
+	}
+	setCurrent(value : Acc){
+		if(this.currentKey === undefined){
+			throw("No current key. You either never called next, called next too often, or called next but didn't check the 'done' property.");
+		} else {
+			this.#keyMapAcc[this.currentKey] = value;
+		}
+	}
+	/*next(value){
+		if(this.done){
+			return;
+		}
+		if(this.#currentKey === undefined){
+			return;
+		}
+		this.#keyMap[this.#currentKey] = value;
+		this.#next();
+	}
+	#next(){
+		let out = this.#keysLeft.next();
+		this.#done = out.done ?? false;
+		this.#currentKey = out.value;
+		if(this.#done){
+			this.#resolved = eval_factory(this.#resolving, this.#keyMap, this.#scope);
+		} else {
+			this.#currentKey = out.value;
+		}
+	}*/
+}
+
+export function walk_ast<Acc>(ast : AST, defaultAcc : Acc, defaulter : DefineDefault, reducer : TreeReducer<Acc>) : Acc | undefined{
+	let stepStack : TreeWalkerStep<AST, Acc>[] = [];
+	let currentStep : TreeWalkerStep<AST, Acc> = new TreeWalkerStep(ast);
+	let done = false;
+	let acc : Acc = defaultAcc;
+	while(! done){
+		let currentKeyVal = currentStep.next();
+		if(currentKeyVal.done){
+			acc = reducer(currentStep.currentNode, currentStep.keymap);
+			let popped = stepStack.pop();
+			if(popped === undefined){
+				done = true;
+			} else {
+				popped.setCurrent(acc);
+				currentStep = popped;
+			}
+		} else if(currentKeyVal.value === undefined){
+			let defaulted = defaulter(stepStack.map((w) => w.currentNode), currentStep.currentNode, currentStep.currentKey);
+			stepStack.push(currentStep);
+			currentStep = new TreeWalkerStep(defaulted);
+		} else {
+			stepStack.push(currentStep);
+			currentStep = new TreeWalkerStep((currentKeyVal.value as unknown as AST));
+		}
+	}
+	return acc;
 }

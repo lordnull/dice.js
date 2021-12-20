@@ -46,133 +46,17 @@ var dice = {
 	stringify: require('./stringify').stringify,
 	ops: require('./evaluate').ops,
 	version: require('../package').version,
-	grammer: require('./grammerAST')
+	grammer: require('./grammerAST'),
+	statistics: require('./statistics').analyse
 };
 
 function roll(str, scope){
-	var parsed = dice.parse(str);
-	console.log("parse completed");
-	var evaled = dice.eval(parsed, scope);
+	let parsed = dice.parse(str);
+	let evaled = dice.eval(parsed, scope);
 	return evaled;
 };
 
 dice.roll = roll;
-
-dice.statistics = function(str, scope, samples){
-	if(typeof(scope) == "number"){
-		samples = scope;
-		scope = {};
-	}
-	scope = scope || {};
-	samples = samples || 1000;
-	var resultSet = [];
-	var i;
-	for(i = 0; i < samples; i++){
-		resultSet.push(roll(str, scope));
-	}
-	var mean = resultSet.reduce(function(n, acc){ return n + acc; }, 0) / samples;
-	var min = resultSet.reduce(function(n, acc){ return n < acc ? n : acc; }, resultSet[0]);
-	var max = resultSet.reduce(function(n, acc){ return n > acc ? n : acc; }, resultSet[0]);
-
-	var parsed = dice.parse(str);
-
-	var minMaxPossible = determine_min_max_possible(parsed, scope);
-
-	return {
-		'results': resultSet,
-		'mean': mean,
-		'min': parseInt(min.toFixed()),
-		'max': parseInt(max.toFixed()),
-		'min_possible': minMaxPossible[0],
-		'max_possible': minMaxPossible[1]
-	};
-};
-
-function determine_min_max_possible(opObject, scope){
-	if(opObject.op == 'static'){
-		return [opObject.value, opObject.value];
-	}
-	if(opObject.op == 'lookup'){
-		var lookup = dice.ops.lookup.call(opObject, scope);
-		return [lookup(scope), lookup(scope)];
-	}
-	if(opObject.op == 'floor'){
-		var minmax = determine_min_max_possible(opObject.args[0], scope);
-		return [Math.floor(minmax[0]), Math.floor(minmax[1])];
-	}
-	if(opObject.op == 'ceil'){
-		var minmax = determine_min_max_possible(opObject.args[0], scope);
-		return [Math.ceil(minmax[0]), Math.ceil(minmax[1])];
-	}
-	if(opObject.op == 'round'){
-		var minmax = determine_min_max_possible(opObject.args[0], scope);
-		return [Math.round(minmax[0]), Math.round(minmax[1])];
-	}
-	if(opObject.op == 'd'){
-		var multipleMinMax = determine_min_max_possible(opObject.args[0], scope);
-		var randPartMinMax = determine_min_max_possible(opObject.args[1], scope);
-		var min = randPartMinMax[0] * multipleMinMax[0];
-		var max = randPartMinMax[1] * multipleMinMax[1];
-		return [min, max];
-	}
-	if(opObject.op == 'w'){
-		var multipleMinMax = determine_min_max_possible(opObject.args[0], scope);
-		var randPartMinMax = determine_min_max_possible(opObject.args[1], scope);
-		var min = randPartMinMax[0] * multipleMinMax[0];
-		var max = randPartMinMax[1] * multipleMinMax[1];
-		return [min, max];
-	}
-	if(opObject.op == 'random'){
-		var minMinMax = determine_min_max_possible(opObject.args[0], scope);
-		var maxMinMax = determine_min_max_possible(opObject.args[1], scope);
-		return [minMinMax[0], maxMinMax[1]];
-	}
-	if(opObject.op == 'sum'){
-		var minMaxes = opObject.addends.map(function(sumOp){
-			return [sumOp[0], determine_min_max_possible(sumOp[1], scope)];
-		});
-		var minMaxInit = minMaxes.shift();
-		var min = minMaxes.reduce(function(acc, sumOp){
-			if(sumOp[0] === '+'){
-				return acc + sumOp[1][0];
-			} else {
-				return acc - sumOp[1][1];
-			}
-		}, minMaxInit[1][0]);
-		var max = minMaxes.reduce(function(acc, sumOp){
-			if(sumOp[0] === '+'){
-				return acc + sumOp[1][1];
-			} else {
-				return acc - sumOp[1][0];
-			}
-		}, minMaxInit[1][1]);
-		return [min, max];
-	}
-	if(opObject.op == 'mult'){
-		var minMaxes = opObject.multiplicants.map(function(multOp){
-			return [multOp[0], determine_min_max_possible(multOp[1], scope)];
-		});
-		var minMaxInit = minMaxes.shift();
-		var min = minMaxes.reduce(function(acc, multOp){
-			if(multOp[0] === '*'){
-				return acc * multOp[1][0];
-			} else {
-				return acc / multOp[1][1];
-			}
-		}, minMaxInit[1][0]);
-		var max = minMaxes.reduce(function(acc, multOp){
-			if(multOp[0] === '*'){
-				return acc * multOp[1][1];
-			} else {
-				return acc / multOp[1][0];
-			}
-		}, minMaxInit[1][1]);
-		return [min, max];
-	}
-	if(opObject.op == 'paren_express'){
-		return determine_min_max_possible(opObject.args[0], scope);
-	}
-}
 
 var k;
 for(k in dice){
@@ -180,7 +64,7 @@ for(k in dice){
 }
 
 
-},{"../package":1,"./evaluate":3,"./grammerAST":4,"./parser":5,"./stringify":6}],3:[function(require,module,exports){
+},{"../package":1,"./evaluate":3,"./grammerAST":4,"./parser":5,"./statistics":6,"./stringify":7}],3:[function(require,module,exports){
 "use strict";
 var __classPrivateFieldSet = (this && this.__classPrivateFieldSet) || function (receiver, state, value, kind, f) {
     if (kind === "m") throw new TypeError("Private method is not writable");
@@ -195,7 +79,7 @@ var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (
 };
 var _LookupR_lookupName, _DiceRollR_min, _DiceRollR_max, _DiceRollR_x, _DiceRollR_modifiers, _DiceRollR_rolls, _RollSetModifiersR_mods, _KeepDropModifier_action, _KeepDropModifier_direction, _KeepDropModifier_howMany, _RerollModifier_comparisonMode, _RerollModifier_comparisonValue, _RerollModifier_limit, _ExplodeModifier_comparisonMode, _ExplodeModifier_comparisonValue, _ExplodeModifier_limit, _RounderR_mode, _RounderR_thingRounded, _MathOpR_op, _MathOpR_opFunc, _MathOpR_operand, _MathOpListR_ops, _MathSeqR_ops, _MathSeqR_head, _ParensR_expression, _ResolveEngine_resolving, _ResolveEngine_allKeys, _ResolveEngine_keyItor, _ResolveEngine_currentKey, _ResolveEngine_keyMap, _ResolveEngine_scope, _ResolveEngine_resolved;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ParensR = exports.MathSeqR = exports.MathOpListR = exports.MathOpR = exports.RounderR = exports.ExplodeModifier = exports.RerollModifier = exports.KeepDropModifier = exports.RollSetModifiersR = exports.DiceRollR = exports.LookupR = exports.StaticR = exports.Resolver = void 0;
+exports.eval_default = exports.ParensR = exports.MathSeqR = exports.MathOpListR = exports.MathOpR = exports.RounderR = exports.ExplodeModifier = exports.RerollModifier = exports.KeepDropModifier = exports.RollSetModifiersR = exports.DiceRollR = exports.LookupR = exports.StaticR = exports.Resolver = void 0;
 let grammer = require("./grammerAST");
 class Resolver extends Number {
     constructor(n, ast) {
@@ -228,13 +112,16 @@ class LookupR extends Resolver {
         if (split[0] === path) {
             return;
         }
-        let reduceRes = split.reduce((acc, elem) => {
+        let reduceRes = split.reverse().reduceRight((acc, elem, index) => {
             if (acc === undefined) {
                 return;
             }
             let nextAcc = acc[elem];
-            if (typeof nextAcc !== "object") {
-                return;
+            let isObject = (typeof nextAcc === "object");
+            let isNumber = (typeof nextAcc === "number");
+            let hasPathLeft = index !== 0;
+            if (hasPathLeft && !isObject) {
+                return undefined;
             }
             return nextAcc;
         }, object);
@@ -366,7 +253,7 @@ class KeepDropModifier extends Resolver {
             return sorted.reverse().slice(__classPrivateFieldGet(this, _KeepDropModifier_howMany, "f").valueOf());
         }
         if (__classPrivateFieldGet(this, _KeepDropModifier_action, "f") === "keep" && __classPrivateFieldGet(this, _KeepDropModifier_direction, "f") === "lowest") {
-            return sorted.reverse().slice(__classPrivateFieldGet(this, _KeepDropModifier_howMany, "f").valueOf());
+            return sorted.reverse().slice(__classPrivateFieldGet(this, _KeepDropModifier_howMany, "f").valueOf() * -1);
         }
         if (__classPrivateFieldGet(this, _KeepDropModifier_action, "f") === "drop" && __classPrivateFieldGet(this, _KeepDropModifier_direction, "f") === "lowest") {
             return sorted.slice(__classPrivateFieldGet(this, _KeepDropModifier_howMany, "f").valueOf());
@@ -776,7 +663,7 @@ function eval_keepdrop(ast, keyMap) {
     let action = ast.action;
     let direction = ast.direction;
     let howMany = keyMap.howMany;
-    return new grammer.KeepDropModifier(action, direction, howMany, ast);
+    return new KeepDropModifier(action, direction, howMany, ast);
 }
 function eval_reroll(ast, keyMap) {
     let comparison = ast.comparisonStr;
@@ -862,6 +749,7 @@ function eval_default(key, thing) {
     }
     throw ("If you got here, somehow parsing allowed things that should not be null to be null");
 }
+exports.eval_default = eval_default;
 function resolve_parsed(ast, scope) {
     let stepStack = [];
     let currentStep = new ResolveEngine(ast, scope);
@@ -917,9 +805,9 @@ var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (
     if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
     return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
 };
-var _Static_value, _Lookup_lookupName, _RollSetModifiers_mods, _RollSetModifiers_kidKeys, _KeepDrop_action, _KeepDrop_direction, _KeepDrop_howMany, _ReRoll_comparisonStr, _ReRoll_compareToVal, _ReRoll_limit, _Explode_comparisonStr, _Explode_compareToVal, _Explode_limit, _DiceRoll_x, _DiceRoll_min, _DiceRoll_max, _DiceRoll_modifiers, _Rounder_roundType, _Rounder_thingToRound, _MathOp_opStr, _MathOp_val, _MathOpList_ops, _MathOpList_kidKeys, _MathSeq_ops, _MathSeq_head, _Parens_expression;
+var _Static_value, _Lookup_lookupName, _RollSetModifiers_mods, _RollSetModifiers_kidKeys, _KeepDrop_action, _KeepDrop_direction, _KeepDrop_howMany, _ReRoll_comparisonStr, _ReRoll_compareToVal, _ReRoll_limit, _Explode_comparisonStr, _Explode_compareToVal, _Explode_limit, _DiceRoll_x, _DiceRoll_min, _DiceRoll_max, _DiceRoll_modifiers, _Rounder_roundType, _Rounder_thingToRound, _MathOp_opStr, _MathOp_val, _MathOpList_ops, _MathOpList_kidKeys, _MathSeq_ops, _MathSeq_head, _Parens_expression, _TreeWalkerStep_currentNode, _TreeWalkerStep_allKeys, _TreeWalkerStep_keyItor, _TreeWalkerStep_currentKey, _TreeWalkerStep_keyMapAcc;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Parens = exports.MathSeq = exports.MathOpList = exports.MathOp = exports.Rounder = exports.DiceRoll = exports.Explode = exports.ReRoll = exports.KeepDrop = exports.RollSetModifiers = exports.Lookup = exports.Static = void 0;
+exports.walk_ast = exports.TreeWalkerStep = exports.Parens = exports.MathSeq = exports.MathOpList = exports.MathOp = exports.Rounder = exports.DiceRoll = exports.Explode = exports.ReRoll = exports.KeepDrop = exports.RollSetModifiers = exports.Lookup = exports.Static = void 0;
 class Static {
     constructor(val) {
         _Static_value.set(this, void 0);
@@ -930,6 +818,9 @@ class Static {
     }
     children() {
         return [];
+    }
+    static is(a) {
+        return (a instanceof Static);
     }
 }
 exports.Static = Static;
@@ -944,6 +835,9 @@ class Lookup {
     }
     children() {
         return [];
+    }
+    static is(a) {
+        return (a instanceof Lookup);
     }
 }
 exports.Lookup = Lookup;
@@ -980,6 +874,9 @@ class RollSetModifiers {
         let out = __classPrivateFieldGet(this, _RollSetModifiers_kidKeys, "f").map(mapper);
         return out;
     }
+    static is(a) {
+        return (a instanceof RollSetModifiers);
+    }
 }
 exports.RollSetModifiers = RollSetModifiers;
 _RollSetModifiers_mods = new WeakMap(), _RollSetModifiers_kidKeys = new WeakMap();
@@ -1004,6 +901,9 @@ class KeepDrop {
     children() {
         return ['howMany'];
     }
+    static is(a) {
+        return (a instanceof KeepDrop);
+    }
 }
 exports.KeepDrop = KeepDrop;
 _KeepDrop_action = new WeakMap(), _KeepDrop_direction = new WeakMap(), _KeepDrop_howMany = new WeakMap();
@@ -1026,7 +926,10 @@ class ReRoll {
         return __classPrivateFieldGet(this, _ReRoll_limit, "f");
     }
     children() {
-        return ['limit', 'comparToVal'];
+        return ['limit', 'compareToVal'];
+    }
+    static is(a) {
+        return (a instanceof ReRoll);
     }
 }
 exports.ReRoll = ReRoll;
@@ -1052,6 +955,9 @@ class Explode {
     children() {
         return ['limit', 'compareToVal'];
     }
+    static is(a) {
+        return (a instanceof Explode);
+    }
 }
 exports.Explode = Explode;
 _Explode_comparisonStr = new WeakMap(), _Explode_compareToVal = new WeakMap(), _Explode_limit = new WeakMap();
@@ -1064,7 +970,7 @@ class DiceRoll {
         __classPrivateFieldSet(this, _DiceRoll_x, x, "f");
         __classPrivateFieldSet(this, _DiceRoll_min, min, "f");
         __classPrivateFieldSet(this, _DiceRoll_max, max, "f");
-        __classPrivateFieldGet(this, _DiceRoll_modifiers, "f");
+        __classPrivateFieldSet(this, _DiceRoll_modifiers, modifiers, "f");
     }
     get x() {
         return __classPrivateFieldGet(this, _DiceRoll_x, "f");
@@ -1086,6 +992,9 @@ class DiceRoll {
         ];
         return keys;
     }
+    static is(a) {
+        return (a instanceof DiceRoll);
+    }
 }
 exports.DiceRoll = DiceRoll;
 _DiceRoll_x = new WeakMap(), _DiceRoll_min = new WeakMap(), _DiceRoll_max = new WeakMap(), _DiceRoll_modifiers = new WeakMap();
@@ -1105,6 +1014,9 @@ class Rounder {
     children() {
         return ['thingToRound'];
     }
+    static is(a) {
+        return (a instanceof Rounder);
+    }
 }
 exports.Rounder = Rounder;
 _Rounder_roundType = new WeakMap(), _Rounder_thingToRound = new WeakMap();
@@ -1123,6 +1035,9 @@ class MathOp {
     }
     children() {
         return ['val'];
+    }
+    static is(a) {
+        return (a instanceof MathOp);
     }
 }
 exports.MathOp = MathOp;
@@ -1158,6 +1073,9 @@ class MathOpList {
         let out = __classPrivateFieldGet(this, _MathOpList_kidKeys, "f").map(mapper);
         return out;
     }
+    static is(a) {
+        return (a instanceof MathOpList);
+    }
 }
 exports.MathOpList = MathOpList;
 _MathOpList_ops = new WeakMap(), _MathOpList_kidKeys = new WeakMap();
@@ -1177,6 +1095,9 @@ class MathSeq {
     children() {
         return ['head', 'ops'];
     }
+    static is(a) {
+        return (a instanceof MathSeq);
+    }
 }
 exports.MathSeq = MathSeq;
 _MathSeq_ops = new WeakMap(), _MathSeq_head = new WeakMap();
@@ -1191,9 +1112,116 @@ class Parens {
     children() {
         return ['expression'];
     }
+    static is(a) {
+        return (a instanceof Parens);
+    }
 }
 exports.Parens = Parens;
 _Parens_expression = new WeakMap();
+class TreeWalkerStep {
+    constructor(thing) {
+        _TreeWalkerStep_currentNode.set(this, void 0);
+        _TreeWalkerStep_allKeys.set(this, []);
+        _TreeWalkerStep_keyItor.set(this, void 0);
+        _TreeWalkerStep_currentKey.set(this, void 0);
+        _TreeWalkerStep_keyMapAcc.set(this, {});
+        __classPrivateFieldSet(this, _TreeWalkerStep_currentNode, thing, "f");
+        __classPrivateFieldSet(this, _TreeWalkerStep_allKeys, thing.children(), "f");
+        __classPrivateFieldSet(this, _TreeWalkerStep_keyItor, __classPrivateFieldGet(this, _TreeWalkerStep_allKeys, "f").values(), "f");
+    }
+    get currentKey() {
+        if (__classPrivateFieldGet(this, _TreeWalkerStep_currentKey, "f") === undefined) {
+            throw ("No current key; may need to reset the iteration and call 'next'");
+        }
+        else {
+            return __classPrivateFieldGet(this, _TreeWalkerStep_currentKey, "f");
+        }
+    }
+    get currentValue() {
+        if (__classPrivateFieldGet(this, _TreeWalkerStep_currentKey, "f") === undefined) {
+            return undefined;
+        }
+        return __classPrivateFieldGet(this, _TreeWalkerStep_currentNode, "f")[__classPrivateFieldGet(this, _TreeWalkerStep_currentKey, "f")];
+    }
+    get currentNode() {
+        return __classPrivateFieldGet(this, _TreeWalkerStep_currentNode, "f");
+    }
+    get keymapSoFar() {
+        return __classPrivateFieldGet(this, _TreeWalkerStep_keyMapAcc, "f");
+    }
+    get keymap() {
+        let validator = (key) => {
+            if (__classPrivateFieldGet(this, _TreeWalkerStep_keyMapAcc, "f")[key] === undefined) {
+                throw (key + ' is not yet set');
+            }
+            return true;
+        };
+        __classPrivateFieldGet(this, _TreeWalkerStep_allKeys, "f").forEach(validator);
+        let out = __classPrivateFieldGet(this, _TreeWalkerStep_keyMapAcc, "f");
+        return out;
+    }
+    get allKeys() {
+        return __classPrivateFieldGet(this, _TreeWalkerStep_allKeys, "f");
+    }
+    resetItor() {
+        __classPrivateFieldSet(this, _TreeWalkerStep_keyItor, __classPrivateFieldGet(this, _TreeWalkerStep_allKeys, "f").values(), "f");
+        __classPrivateFieldSet(this, _TreeWalkerStep_currentKey, undefined, "f");
+    }
+    next() {
+        let rawNext = __classPrivateFieldGet(this, _TreeWalkerStep_keyItor, "f").next();
+        __classPrivateFieldSet(this, _TreeWalkerStep_currentKey, rawNext.value, "f");
+        let outValue = {
+            key: __classPrivateFieldGet(this, _TreeWalkerStep_currentKey, "f"),
+            value: this.currentValue,
+            done: rawNext.done
+        };
+        return outValue;
+    }
+    setKey(key, value) {
+        __classPrivateFieldGet(this, _TreeWalkerStep_keyMapAcc, "f")[key] = value;
+    }
+    setCurrent(value) {
+        if (this.currentKey === undefined) {
+            throw ("No current key. You either never called next, called next too often, or called next but didn't check the 'done' property.");
+        }
+        else {
+            __classPrivateFieldGet(this, _TreeWalkerStep_keyMapAcc, "f")[this.currentKey] = value;
+        }
+    }
+}
+exports.TreeWalkerStep = TreeWalkerStep;
+_TreeWalkerStep_currentNode = new WeakMap(), _TreeWalkerStep_allKeys = new WeakMap(), _TreeWalkerStep_keyItor = new WeakMap(), _TreeWalkerStep_currentKey = new WeakMap(), _TreeWalkerStep_keyMapAcc = new WeakMap();
+function walk_ast(ast, defaultAcc, defaulter, reducer) {
+    let stepStack = [];
+    let currentStep = new TreeWalkerStep(ast);
+    let done = false;
+    let acc = defaultAcc;
+    while (!done) {
+        let currentKeyVal = currentStep.next();
+        if (currentKeyVal.done) {
+            acc = reducer(currentStep.currentNode, currentStep.keymap);
+            let popped = stepStack.pop();
+            if (popped === undefined) {
+                done = true;
+            }
+            else {
+                popped.setCurrent(acc);
+                currentStep = popped;
+            }
+        }
+        else if (currentKeyVal.value === undefined) {
+            let defaulted = defaulter(stepStack.map((w) => w.currentNode), currentStep.currentNode, currentStep.currentKey);
+            stepStack.push(currentStep);
+            currentStep = new TreeWalkerStep(defaulted);
+        }
+        else {
+            stepStack.push(currentStep);
+            currentStep = new TreeWalkerStep(currentKeyVal.value);
+        }
+    }
+    return acc;
+}
+exports.walk_ast = walk_ast;
 
 },{}],5:[function(require,module,exports){
 // Generated by Peggy 1.2.0.
@@ -1471,18 +1499,21 @@ function peg$parse(input, options) {
   		return new ast.DiceRoll(x ?? undefined, undefined, max, mods ?? undefined);
   	};
   var peg$f3 = function(x, min, max, mods) {
-  		let wildMod = new ast.Explode("=", max, 10000, min, max);
+  		mods = mods ?? [];
+  		let wildMod = new ast.Explode("=", max, undefined, min, max);
   		mods.unshift(wildMod);
-  		return new ast.DiceRoll(x ?? undefined, min, max, mods);
+  		let properMods = new ast.RollSetModifiers(mods);
+  		return new ast.DiceRoll(x ?? undefined, min, max, properMods);
   	};
   var peg$f4 = function(x, max, maybeMods) {
   		let mods = maybeMods ?? [];
-  		let wildMod = new ast.Explode("=", max, 10000, 1, max);
+  		let wildMod = new ast.Explode("=", max, undefined, 1, max);
   		mods.unshift(wildMod);
-  		return new ast.DiceRoll(x ?? undefined, undefined, max, mods);
+  		let properMods = new ast.RollSetModifiers(mods);
+  		return new ast.DiceRoll(x ?? undefined, undefined, max, properMods);
   	};
   var peg$f5 = function(min, max) {
-  		return new ast.DiceRoll(undefined, min, max, []);
+  		return new ast.DiceRoll(undefined, min, max, rollModifiers ?? undefined);
   	};
   var peg$f6 = function(s) {
   		return new ast.RollSetModifiers([s]);
@@ -1490,13 +1521,13 @@ function peg$parse(input, options) {
   var peg$f7 = function(kd, maybe_hl, maybe_howMany) {
   		let defaultDiceType = "highest";
   		let action = "keep";
-  		if(kd.toLower() === "d"){
+  		if(kd.toLowerCase() === "d"){
   			action = "drop"
-  			defaultDicetype = "lowest"
+  			defaultDiceType = "lowest"
   		}
   		let diceType = defaultDiceType;
   		if(maybe_hl){
-  			if(maybe_hl.toLower() === "l"){
+  			if(maybe_hl.toLowerCase() === "l"){
   				diceType = "lowest";
   			} else {
   				diceType = "highest";
@@ -1508,7 +1539,7 @@ function peg$parse(input, options) {
   var peg$f8 = function(dt, maybe_howMany) {
   		let action = "keep";
   		let diceType = "highest";
-  		if(dt.toLower() === "h"){
+  		if(dt.toLowerCase() === "h"){
   			action = "keep";
   			diceType = "highest";
   		} else {
@@ -1520,7 +1551,7 @@ function peg$parse(input, options) {
   	};
   var peg$f9 = function(maybe_limit) {
   		let limit = maybe_limit ?? undefined;
-  		return new ast.Reroll("=", undefined, undefined);
+  		return new ast.ReRoll("=", undefined, undefined);
   	};
   var peg$f10 = function(seq) {
   		return seq;
@@ -1530,44 +1561,57 @@ function peg$parse(input, options) {
   		return new ast.RollSetModifiers(tail);
   	};
   var peg$f12 = function(action, dt, maybe_howMany) {
-  		let howMany = maybe_howMany ?? undefined;
+  		let howMany = maybe_howMany[1] ?? undefined;
+  		dt = dt[1];
   		return new ast.KeepDrop(action, dt, howMany);
   	};
-  var peg$f13 = function(maybe_compare, maybe_limit) {
-  		maybeCompare = maybeCompare ?? [undefined, undefined];
-  		let compareStr = maybeCompare[0] ?? undefined;
-  		let compareVal = maybeCompare[1] ?? undefined;
-  		return ast.Explode(compareStr, compareVal, maybe_limit ?? undefined);
+  var peg$f13 = function(compareStr, compareVal, limit) {
+  		return new ast.Explode(compareStr, compareVal, limit);
   	};
-  var peg$f14 = function(compareStr, compareVal, limit) {
-  		return ast.Reroll(compareStr, compareVal, limit);
+  var peg$f14 = function(compareStr, compareVal) {
+  		return new ast.Explode(compareStr, compareVal, undefined);
   	};
-  var peg$f15 = function(compareVal, limit) {
-  		return ast.Reroll(undefined, compareVal, limit);
+  var peg$f15 = function(compareStr, limit) {
+  		return new ast.Explode(compareStr, undefined, limit);
   	};
-  var peg$f16 = function(compareStr, compareVal) {
-  		return ast.Reroll(compareStr, compareVal);
+  var peg$f16 = function(compareVal, limit) {
+  		return new ast.Explode(undefined, compareVal, limit);
   	};
   var peg$f17 = function(limit) {
-  		return ast.Reroll(undefined, undefined, limit);
+  		return new ast.Explode(undefined, undefined, limit);
   	};
-  var peg$f18 = function(compareVal) {
-  		return ast.Reroll(undefined, compareVal);
+  var peg$f18 = function() {
+  		return new ast.Explode(undefined, undefined, undefined);
   	};
-  var peg$f19 = function() {
-  		return ast.Reroll();
+  var peg$f19 = function(compareStr, compareVal, limit) {
+  		return new ast.ReRoll(compareStr, compareVal, limit);
   	};
-  var peg$f20 = function(maybe_rounder, p) {
+  var peg$f20 = function(compareVal, limit) {
+  		return new ast.ReRoll(undefined, compareVal, limit);
+  	};
+  var peg$f21 = function(compareStr, compareVal) {
+  		return new ast.ReRoll(compareStr, compareVal);
+  	};
+  var peg$f22 = function(limit) {
+  		return new ast.ReRoll(undefined, undefined, limit);
+  	};
+  var peg$f23 = function(compareVal) {
+  		return new ast.ReRoll(undefined, compareVal);
+  	};
+  var peg$f24 = function() {
+  		return new ast.ReRoll();
+  	};
+  var peg$f25 = function(maybe_rounder, p) {
   		if(maybe_rounder){
   			return new ast.Rounder(maybe_rounder, p);
   		} else {
   			return p;
   		}
   	};
-  var peg$f21 = function(e) {
+  var peg$f26 = function(e) {
   		return new ast.Parens(e);
   	};
-  var peg$f22 = function(maybe_r, lookup) {
+  var peg$f27 = function(maybe_r, lookup) {
   		let baseAst = new ast.Lookup(lookup);
   		if(maybe_r){
   			return new ast.Rounder(maybe_r, baseAst);
@@ -1575,16 +1619,16 @@ function peg$parse(input, options) {
   			return baseAst;
   		}
   	};
-  var peg$f23 = function(r, p) {
+  var peg$f28 = function(r, p) {
   		return new ast.Rounder(r, p);
   	};
-  var peg$f24 = function(i) {
+  var peg$f29 = function(i) {
   		return new ast.Static(i);
   	};
-  var peg$f25 = function(name) {
+  var peg$f30 = function(name) {
   		return name.join('');
   	};
-  var peg$f26 = function() {
+  var peg$f31 = function() {
   		return parseInt(text());
   	};
 
@@ -2397,7 +2441,7 @@ function peg$parse(input, options) {
   }
 
   function peg$parseexplodeModifier() {
-    var s0, s1, s2, s3, s4, s5, s6;
+    var s0, s1, s2, s3, s4, s5, s6, s7, s8;
 
     s0 = peg$currPos;
     if (input.substr(peg$currPos, 7) === peg$c14) {
@@ -2408,64 +2452,252 @@ function peg$parse(input, options) {
       if (peg$silentFails === 0) { peg$fail(peg$e18); }
     }
     if (s1 !== peg$FAILED) {
-      s2 = peg$currPos;
-      s3 = peg$parseneed_ws();
-      if (s3 !== peg$FAILED) {
-        s4 = peg$parsecomparison();
-        if (s4 !== peg$FAILED) {
-          s5 = peg$parseopt_ws();
-          s6 = peg$parseintVal();
-          if (s6 !== peg$FAILED) {
-            s2 = [ s4, s6 ];
+      s2 = peg$parseneed_ws();
+      if (s2 !== peg$FAILED) {
+        s3 = peg$parsecomparison();
+        if (s3 !== peg$FAILED) {
+          s4 = peg$parseopt_ws();
+          s5 = peg$parseintVal();
+          if (s5 !== peg$FAILED) {
+            s6 = peg$parseneed_ws();
+            if (s6 !== peg$FAILED) {
+              s7 = peg$parseintVal();
+              if (s7 !== peg$FAILED) {
+                if (input.charCodeAt(peg$currPos) === 120) {
+                  s8 = peg$c15;
+                  peg$currPos++;
+                } else {
+                  s8 = peg$FAILED;
+                  if (peg$silentFails === 0) { peg$fail(peg$e19); }
+                }
+                if (s8 !== peg$FAILED) {
+                  peg$savedPos = s0;
+                  s0 = peg$f13(s3, s5, s7);
+                } else {
+                  peg$currPos = s0;
+                  s0 = peg$FAILED;
+                }
+              } else {
+                peg$currPos = s0;
+                s0 = peg$FAILED;
+              }
+            } else {
+              peg$currPos = s0;
+              s0 = peg$FAILED;
+            }
           } else {
-            peg$currPos = s2;
-            s2 = peg$FAILED;
+            peg$currPos = s0;
+            s0 = peg$FAILED;
           }
         } else {
-          peg$currPos = s2;
-          s2 = peg$FAILED;
+          peg$currPos = s0;
+          s0 = peg$FAILED;
         }
       } else {
-        peg$currPos = s2;
-        s2 = peg$FAILED;
+        peg$currPos = s0;
+        s0 = peg$FAILED;
       }
-      if (s2 === peg$FAILED) {
-        s2 = null;
-      }
-      s3 = peg$currPos;
-      s4 = peg$parseneed_ws();
-      if (s4 !== peg$FAILED) {
-        s5 = peg$parseintVal();
-        if (s5 !== peg$FAILED) {
-          if (input.charCodeAt(peg$currPos) === 120) {
-            s6 = peg$c15;
-            peg$currPos++;
-          } else {
-            s6 = peg$FAILED;
-            if (peg$silentFails === 0) { peg$fail(peg$e19); }
-          }
-          if (s6 !== peg$FAILED) {
-            s3 = s5;
-          } else {
-            peg$currPos = s3;
-            s3 = peg$FAILED;
-          }
-        } else {
-          peg$currPos = s3;
-          s3 = peg$FAILED;
-        }
-      } else {
-        peg$currPos = s3;
-        s3 = peg$FAILED;
-      }
-      if (s3 === peg$FAILED) {
-        s3 = null;
-      }
-      peg$savedPos = s0;
-      s0 = peg$f13(s2, s3);
     } else {
       peg$currPos = s0;
       s0 = peg$FAILED;
+    }
+    if (s0 === peg$FAILED) {
+      s0 = peg$currPos;
+      if (input.substr(peg$currPos, 7) === peg$c14) {
+        s1 = peg$c14;
+        peg$currPos += 7;
+      } else {
+        s1 = peg$FAILED;
+        if (peg$silentFails === 0) { peg$fail(peg$e18); }
+      }
+      if (s1 !== peg$FAILED) {
+        s2 = peg$parseneed_ws();
+        if (s2 !== peg$FAILED) {
+          s3 = peg$parsecomparison();
+          if (s3 !== peg$FAILED) {
+            s4 = peg$parseopt_ws();
+            s5 = peg$parseintVal();
+            if (s5 !== peg$FAILED) {
+              peg$savedPos = s0;
+              s0 = peg$f14(s3, s5);
+            } else {
+              peg$currPos = s0;
+              s0 = peg$FAILED;
+            }
+          } else {
+            peg$currPos = s0;
+            s0 = peg$FAILED;
+          }
+        } else {
+          peg$currPos = s0;
+          s0 = peg$FAILED;
+        }
+      } else {
+        peg$currPos = s0;
+        s0 = peg$FAILED;
+      }
+      if (s0 === peg$FAILED) {
+        s0 = peg$currPos;
+        if (input.substr(peg$currPos, 7) === peg$c14) {
+          s1 = peg$c14;
+          peg$currPos += 7;
+        } else {
+          s1 = peg$FAILED;
+          if (peg$silentFails === 0) { peg$fail(peg$e18); }
+        }
+        if (s1 !== peg$FAILED) {
+          s2 = peg$parseneed_ws();
+          if (s2 !== peg$FAILED) {
+            s3 = peg$parsecomparison();
+            if (s3 !== peg$FAILED) {
+              s4 = peg$parseneed_ws();
+              if (s4 !== peg$FAILED) {
+                s5 = peg$parseintVal();
+                if (s5 !== peg$FAILED) {
+                  if (input.charCodeAt(peg$currPos) === 120) {
+                    s6 = peg$c15;
+                    peg$currPos++;
+                  } else {
+                    s6 = peg$FAILED;
+                    if (peg$silentFails === 0) { peg$fail(peg$e19); }
+                  }
+                  if (s6 !== peg$FAILED) {
+                    peg$savedPos = s0;
+                    s0 = peg$f15(s3, s5);
+                  } else {
+                    peg$currPos = s0;
+                    s0 = peg$FAILED;
+                  }
+                } else {
+                  peg$currPos = s0;
+                  s0 = peg$FAILED;
+                }
+              } else {
+                peg$currPos = s0;
+                s0 = peg$FAILED;
+              }
+            } else {
+              peg$currPos = s0;
+              s0 = peg$FAILED;
+            }
+          } else {
+            peg$currPos = s0;
+            s0 = peg$FAILED;
+          }
+        } else {
+          peg$currPos = s0;
+          s0 = peg$FAILED;
+        }
+        if (s0 === peg$FAILED) {
+          s0 = peg$currPos;
+          if (input.substr(peg$currPos, 7) === peg$c14) {
+            s1 = peg$c14;
+            peg$currPos += 7;
+          } else {
+            s1 = peg$FAILED;
+            if (peg$silentFails === 0) { peg$fail(peg$e18); }
+          }
+          if (s1 !== peg$FAILED) {
+            s2 = peg$parseneed_ws();
+            if (s2 !== peg$FAILED) {
+              s3 = peg$parseintVal();
+              if (s3 !== peg$FAILED) {
+                s4 = peg$parseneed_ws();
+                if (s4 !== peg$FAILED) {
+                  s5 = peg$parseintVal();
+                  if (s5 !== peg$FAILED) {
+                    if (input.charCodeAt(peg$currPos) === 120) {
+                      s6 = peg$c15;
+                      peg$currPos++;
+                    } else {
+                      s6 = peg$FAILED;
+                      if (peg$silentFails === 0) { peg$fail(peg$e19); }
+                    }
+                    if (s6 !== peg$FAILED) {
+                      peg$savedPos = s0;
+                      s0 = peg$f16(s3, s5);
+                    } else {
+                      peg$currPos = s0;
+                      s0 = peg$FAILED;
+                    }
+                  } else {
+                    peg$currPos = s0;
+                    s0 = peg$FAILED;
+                  }
+                } else {
+                  peg$currPos = s0;
+                  s0 = peg$FAILED;
+                }
+              } else {
+                peg$currPos = s0;
+                s0 = peg$FAILED;
+              }
+            } else {
+              peg$currPos = s0;
+              s0 = peg$FAILED;
+            }
+          } else {
+            peg$currPos = s0;
+            s0 = peg$FAILED;
+          }
+          if (s0 === peg$FAILED) {
+            s0 = peg$currPos;
+            if (input.substr(peg$currPos, 7) === peg$c14) {
+              s1 = peg$c14;
+              peg$currPos += 7;
+            } else {
+              s1 = peg$FAILED;
+              if (peg$silentFails === 0) { peg$fail(peg$e18); }
+            }
+            if (s1 !== peg$FAILED) {
+              s2 = peg$parseneed_ws();
+              if (s2 !== peg$FAILED) {
+                s3 = peg$parseintVal();
+                if (s3 !== peg$FAILED) {
+                  if (input.charCodeAt(peg$currPos) === 120) {
+                    s4 = peg$c15;
+                    peg$currPos++;
+                  } else {
+                    s4 = peg$FAILED;
+                    if (peg$silentFails === 0) { peg$fail(peg$e19); }
+                  }
+                  if (s4 !== peg$FAILED) {
+                    peg$savedPos = s0;
+                    s0 = peg$f17(s3);
+                  } else {
+                    peg$currPos = s0;
+                    s0 = peg$FAILED;
+                  }
+                } else {
+                  peg$currPos = s0;
+                  s0 = peg$FAILED;
+                }
+              } else {
+                peg$currPos = s0;
+                s0 = peg$FAILED;
+              }
+            } else {
+              peg$currPos = s0;
+              s0 = peg$FAILED;
+            }
+            if (s0 === peg$FAILED) {
+              s0 = peg$currPos;
+              if (input.substr(peg$currPos, 7) === peg$c14) {
+                s1 = peg$c14;
+                peg$currPos += 7;
+              } else {
+                s1 = peg$FAILED;
+                if (peg$silentFails === 0) { peg$fail(peg$e18); }
+              }
+              if (s1 !== peg$FAILED) {
+                peg$savedPos = s0;
+                s1 = peg$f18();
+              }
+              s0 = s1;
+            }
+          }
+        }
+      }
     }
 
     return s0;
@@ -2502,7 +2734,7 @@ function peg$parse(input, options) {
               }
               if (s8 !== peg$FAILED) {
                 peg$savedPos = s0;
-                s0 = peg$f14(s3, s5, s7);
+                s0 = peg$f19(s3, s5, s7);
               } else {
                 peg$currPos = s0;
                 s0 = peg$FAILED;
@@ -2554,7 +2786,7 @@ function peg$parse(input, options) {
                 }
                 if (s6 !== peg$FAILED) {
                   peg$savedPos = s0;
-                  s0 = peg$f15(s3, s5);
+                  s0 = peg$f20(s3, s5);
                 } else {
                   peg$currPos = s0;
                   s0 = peg$FAILED;
@@ -2596,7 +2828,7 @@ function peg$parse(input, options) {
             s5 = peg$parseintVal();
             if (s5 !== peg$FAILED) {
               peg$savedPos = s0;
-              s0 = peg$f16(s3, s5);
+              s0 = peg$f21(s3, s5);
             } else {
               peg$currPos = s0;
               s0 = peg$FAILED;
@@ -2632,7 +2864,7 @@ function peg$parse(input, options) {
                 }
                 if (s4 !== peg$FAILED) {
                   peg$savedPos = s0;
-                  s0 = peg$f17(s3);
+                  s0 = peg$f22(s3);
                 } else {
                   peg$currPos = s0;
                   s0 = peg$FAILED;
@@ -2664,7 +2896,7 @@ function peg$parse(input, options) {
                 s3 = peg$parseintVal();
                 if (s3 !== peg$FAILED) {
                   peg$savedPos = s0;
-                  s0 = peg$f18(s3);
+                  s0 = peg$f23(s3);
                 } else {
                   peg$currPos = s0;
                   s0 = peg$FAILED;
@@ -2688,7 +2920,7 @@ function peg$parse(input, options) {
               }
               if (s1 !== peg$FAILED) {
                 peg$savedPos = s0;
-                s1 = peg$f19();
+                s1 = peg$f24();
               }
               s0 = s1;
             }
@@ -2758,7 +2990,7 @@ function peg$parse(input, options) {
     s2 = peg$parserawParens();
     if (s2 !== peg$FAILED) {
       peg$savedPos = s0;
-      s0 = peg$f20(s1, s2);
+      s0 = peg$f25(s1, s2);
     } else {
       peg$currPos = s0;
       s0 = peg$FAILED;
@@ -2792,7 +3024,7 @@ function peg$parse(input, options) {
         }
         if (s5 !== peg$FAILED) {
           peg$savedPos = s0;
-          s0 = peg$f21(s3);
+          s0 = peg$f26(s3);
         } else {
           peg$currPos = s0;
           s0 = peg$FAILED;
@@ -2821,7 +3053,7 @@ function peg$parse(input, options) {
     s2 = peg$parsevariable();
     if (s2 !== peg$FAILED) {
       peg$savedPos = s0;
-      s0 = peg$f22(s1, s2);
+      s0 = peg$f27(s1, s2);
     } else {
       peg$currPos = s0;
       s0 = peg$FAILED;
@@ -2833,7 +3065,7 @@ function peg$parse(input, options) {
         s2 = peg$parserawParens();
         if (s2 !== peg$FAILED) {
           peg$savedPos = s0;
-          s0 = peg$f23(s1, s2);
+          s0 = peg$f28(s1, s2);
         } else {
           peg$currPos = s0;
           s0 = peg$FAILED;
@@ -2847,7 +3079,7 @@ function peg$parse(input, options) {
         s1 = peg$parseintLiteral();
         if (s1 !== peg$FAILED) {
           peg$savedPos = s0;
-          s1 = peg$f24(s1);
+          s1 = peg$f29(s1);
         }
         s0 = s1;
       }
@@ -2919,7 +3151,7 @@ function peg$parse(input, options) {
         }
         if (s3 !== peg$FAILED) {
           peg$savedPos = s0;
-          s0 = peg$f25(s2);
+          s0 = peg$f30(s2);
         } else {
           peg$currPos = s0;
           s0 = peg$FAILED;
@@ -2974,7 +3206,7 @@ function peg$parse(input, options) {
     }
     if (s2 !== peg$FAILED) {
       peg$savedPos = s0;
-      s0 = peg$f26();
+      s0 = peg$f31();
     } else {
       peg$currPos = s0;
       s0 = peg$FAILED;
@@ -3072,6 +3304,443 @@ module.exports = {
 };
 
 },{"./grammerAST":4}],6:[function(require,module,exports){
+"use strict";
+var __classPrivateFieldSet = (this && this.__classPrivateFieldSet) || function (receiver, state, value, kind, f) {
+    if (kind === "m") throw new TypeError("Private method is not writable");
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot write private member to an object whose class did not declare it");
+    return (kind === "a" ? f.call(receiver, value) : f ? f.value = value : state.set(receiver, value)), value;
+};
+var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (receiver, state, kind, f) {
+    if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a getter");
+    if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
+    return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
+};
+var _AccMathOpList_ops, _AccMathSeq_head, _AccMathSeq_ops, _AccKeepDrop_howMany, _AccKeepDrop_ast, _AccExplode_compareValue, _AccExplode_limit, _AccExplode_ast, _AccReRoll_compareValue, _AccReRoll_limit, _AccReRoll_ast, _AccRollSetModifiers_mods;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.analyse = void 0;
+let grammer = require("./grammerAST");
+let parser = require('./parser');
+let evaluate = require("./evaluate");
+function roll(str, scope) {
+    let parsed = parser.parse(str);
+    let evaled = evaluate.eval(parsed, scope);
+    return evaled;
+}
+function analyse(str, scope, samples) {
+    if (typeof (scope) === "number") {
+        samples = scope;
+        scope = {};
+    }
+    scope = scope || {};
+    samples = samples || 1000;
+    var resultSet = [];
+    var i;
+    for (i = 0; i < samples; i++) {
+        resultSet.push(roll(str, scope));
+    }
+    var mean = resultSet.reduce(function (n, acc) { return n + acc; }, 0) / samples;
+    var min = resultSet.reduce(function (n, acc) { return n < acc ? n : acc; }, resultSet[0]);
+    var max = resultSet.reduce(function (n, acc) { return n > acc ? n : acc; }, resultSet[0]);
+    var parsed = parser.parse(str);
+    var minMaxPossible = determine_min_max_possible(parsed, scope);
+    return {
+        'results': resultSet,
+        'mean': mean,
+        'min': parseInt(min.toFixed()),
+        'max': parseInt(max.toFixed()),
+        'min_possible': minMaxPossible.min,
+        'max_possible': minMaxPossible.max
+    };
+}
+exports.analyse = analyse;
+;
+function ast_defaulter(tree, node, key) {
+    let resolveType = evaluate.eval_default(key, node);
+    return resolveType.ast;
+}
+class AccRange {
+    constructor(a, z) {
+        this.min = a;
+        this.max = z;
+    }
+}
+class AccStatic extends AccRange {
+    constructor(aNumber) {
+        super(aNumber, aNumber);
+    }
+}
+class AccMathOp extends AccRange {
+    constructor(anOp, operand) {
+        super(operand.min, operand.max);
+        if (anOp === "-") {
+            this.op = "+";
+            this.min = operand.max * -1;
+            this.max = operand.min * -1;
+        }
+        else if (anOp === "/") {
+            this.op = "*";
+            this.min = (1 / operand.max);
+            this.max = (1 / operand.min);
+        }
+        else {
+            this.op = anOp;
+        }
+    }
+    eval(r) {
+        let outMin = 0;
+        let outMax = 0;
+        if (this.op === "+") {
+            outMin = r.min + this.min;
+            outMax = r.max + this.max;
+        }
+        else if (this.op === "*") {
+            outMin = r.min * this.min;
+            outMax = r.max * this.max;
+        }
+        return new AccRange(outMin, outMax);
+    }
+}
+class AccMathOpList extends AccRange {
+    constructor(someOps) {
+        super(NaN, NaN);
+        _AccMathOpList_ops.set(this, void 0);
+        __classPrivateFieldSet(this, _AccMathOpList_ops, someOps, "f");
+    }
+    get ops() {
+        return __classPrivateFieldGet(this, _AccMathOpList_ops, "f");
+    }
+    eval(init) {
+        let multReduce = (acc, op) => {
+            if (op.op === "*") {
+                acc.range = op.eval(acc.range);
+                return acc;
+            }
+            else {
+                acc.opList.push(new AccMathOp(op.op, acc.range));
+                acc.range = new AccRange(op.min, op.max);
+                return acc;
+            }
+        };
+        let initialMultiReduce = { range: init, opList: [] };
+        let multReduced = __classPrivateFieldGet(this, _AccMathOpList_ops, "f").reduce(multReduce, initialMultiReduce);
+        let addReduce = (acc, op) => {
+            return op.eval(acc);
+        };
+        let addReduced = multReduced.opList.reduce(addReduce, multReduced.range);
+        return addReduced;
+    }
+}
+_AccMathOpList_ops = new WeakMap();
+class AccMathSeq extends AccRange {
+    constructor(head, ops) {
+        super(head.min, head.max);
+        _AccMathSeq_head.set(this, void 0);
+        _AccMathSeq_ops.set(this, void 0);
+        let reduced = ops.eval(head);
+        this.min = reduced.min;
+        this.max = reduced.max;
+        __classPrivateFieldSet(this, _AccMathSeq_head, head, "f");
+        __classPrivateFieldSet(this, _AccMathSeq_ops, ops, "f");
+    }
+    get ops() {
+        return __classPrivateFieldGet(this, _AccMathSeq_ops, "f");
+    }
+    get head() {
+        return __classPrivateFieldGet(this, _AccMathSeq_head, "f");
+    }
+}
+_AccMathSeq_head = new WeakMap(), _AccMathSeq_ops = new WeakMap();
+class AccKeepDrop extends AccRange {
+    constructor(ast, howM) {
+        super(howM.min, howM.max);
+        _AccKeepDrop_howMany.set(this, void 0);
+        _AccKeepDrop_ast.set(this, void 0);
+        __classPrivateFieldSet(this, _AccKeepDrop_howMany, howM, "f");
+        __classPrivateFieldSet(this, _AccKeepDrop_ast, ast, "f");
+    }
+    evalMin(rollSet) {
+        let howMany = __classPrivateFieldGet(this, _AccKeepDrop_howMany, "f").min;
+        let evaler = new evaluate.KeepDropModifier(__classPrivateFieldGet(this, _AccKeepDrop_ast, "f").action, __classPrivateFieldGet(this, _AccKeepDrop_ast, "f").direction, howMany, __classPrivateFieldGet(this, _AccKeepDrop_ast, "f"));
+        return evaler.modify(rollSet);
+    }
+    evalMax(rollSet) {
+        let howMany = __classPrivateFieldGet(this, _AccKeepDrop_howMany, "f").max;
+        let evaler = new evaluate.KeepDropModifier(__classPrivateFieldGet(this, _AccKeepDrop_ast, "f").action, __classPrivateFieldGet(this, _AccKeepDrop_ast, "f").direction, howMany, __classPrivateFieldGet(this, _AccKeepDrop_ast, "f"));
+        return evaler.modify(rollSet);
+    }
+}
+_AccKeepDrop_howMany = new WeakMap(), _AccKeepDrop_ast = new WeakMap();
+// TODO make this actually be truthful in that it will actually evaluate the
+// explosions.
+class AccExplode extends AccRange {
+    constructor(ast, limit, compareValue) {
+        super(limit.min, limit.max);
+        _AccExplode_compareValue.set(this, void 0);
+        _AccExplode_limit.set(this, void 0);
+        _AccExplode_ast.set(this, void 0);
+        __classPrivateFieldSet(this, _AccExplode_limit, limit, "f");
+        __classPrivateFieldSet(this, _AccExplode_compareValue, compareValue, "f");
+        __classPrivateFieldSet(this, _AccExplode_ast, ast, "f");
+    }
+    evalMin(rollSet, minRange, maxRange) {
+        // we're going to skip being truthful and just say we never exploded.
+        return rollSet;
+    }
+    evalMax(rollSet, minRange, maxRange) {
+        // we're going to skip being truthful and just say we never exploded.
+        return rollSet;
+    }
+}
+_AccExplode_compareValue = new WeakMap(), _AccExplode_limit = new WeakMap(), _AccExplode_ast = new WeakMap();
+//TODO make this actually be truthful in that it will actually evaluate the
+// re-rolls.
+class AccReRoll extends AccRange {
+    constructor(ast, limit, compareValue) {
+        super(limit.min, limit.max);
+        _AccReRoll_compareValue.set(this, void 0);
+        _AccReRoll_limit.set(this, void 0);
+        _AccReRoll_ast.set(this, void 0);
+        __classPrivateFieldSet(this, _AccReRoll_limit, limit, "f");
+        __classPrivateFieldSet(this, _AccReRoll_compareValue, compareValue, "f");
+        __classPrivateFieldSet(this, _AccReRoll_ast, ast, "f");
+    }
+    evalMin(rollSet, minRange, maxRange) {
+        return rollSet;
+    }
+    evalMax(rollSet, minRange, maxRnage) {
+        return rollSet;
+    }
+}
+_AccReRoll_compareValue = new WeakMap(), _AccReRoll_limit = new WeakMap(), _AccReRoll_ast = new WeakMap();
+class AccRollSetModifiers extends AccRange {
+    constructor(modifiers) {
+        super(NaN, NaN);
+        _AccRollSetModifiers_mods.set(this, void 0);
+        __classPrivateFieldSet(this, _AccRollSetModifiers_mods, modifiers, "f");
+    }
+    evalMin(rollSet) {
+        let reducer = (acc, mod) => {
+            return mod.evalMin(acc);
+        };
+        return __classPrivateFieldGet(this, _AccRollSetModifiers_mods, "f").reduce(reducer, rollSet);
+    }
+    evalMax(rollSet) {
+        let reducer = (acc, mod) => {
+            return mod.evalMax(acc);
+        };
+        return __classPrivateFieldGet(this, _AccRollSetModifiers_mods, "f").reduce(reducer, rollSet);
+    }
+}
+_AccRollSetModifiers_mods = new WeakMap();
+function reducer(node, keymap, scope) {
+    if (grammer.Static.is(node)) {
+        let x = node.value;
+        return new AccStatic(x);
+    }
+    if (grammer.Lookup.is(node)) {
+        let name = node.lookupName;
+        let x = evaluate.LookupR.deepSeek(name, scope);
+        if (x === undefined) {
+            throw ("scope lacked a value for " + name);
+        }
+        return new AccStatic(x);
+    }
+    if (grammer.MathOp.is(node)) {
+        let casted_node = node;
+        let casted_keymap = keymap;
+        let out = new AccMathOp(casted_node.op, casted_keymap.val);
+        return out;
+    }
+    if (grammer.MathOpList.is(node)) {
+        let casted_node = node;
+        let casted_keymap = keymap;
+        let argReducer = (acc, e) => {
+            let mappedVal = casted_keymap[e];
+            if (mappedVal instanceof AccMathOp) {
+                acc.push(mappedVal);
+            }
+            return acc;
+        };
+        let arg = casted_node.children().reduce(argReducer, []);
+        let out = new AccMathOpList(arg);
+        return out;
+    }
+    if (grammer.MathSeq.is(node)) {
+        let casted_node = node;
+        let casted_keymap = keymap;
+        let out = new AccMathSeq(casted_keymap.head, casted_keymap.ops);
+        return out;
+    }
+    if (grammer.KeepDrop.is(node)) {
+        let casted_node = node;
+        let casted_keymap = keymap;
+        let out = new AccKeepDrop(casted_node, casted_keymap.howMany);
+        return out;
+    }
+    if (grammer.Explode.is(node)) {
+        let casted_node = node;
+        let casted_keymap = keymap;
+        let out = new AccExplode(casted_node, casted_keymap.compareToVal, casted_keymap.limit);
+        return out;
+    }
+    if (grammer.ReRoll.is(node)) {
+        let casted_node = node;
+        let casted_keymap = keymap;
+        let out = new AccReRoll(casted_node, casted_keymap.compareToVal, casted_keymap.limit);
+        return out;
+    }
+    if (grammer.RollSetModifiers.is(node)) {
+        let casted_node = node;
+        let casted_keymap = keymap;
+        let kidKeys = casted_node.children();
+        let gatheredKids = kidKeys.map((k) => casted_keymap[k]);
+        let out = new AccRollSetModifiers(gatheredKids);
+        return out;
+    }
+    if (grammer.DiceRoll.is(node)) {
+        let casted_node = node;
+        let casted_keymap = keymap;
+        let castedX = casted_keymap.x;
+        let castedMin = casted_keymap.min;
+        let castedMax = casted_keymap.max;
+        let castedMods = casted_keymap.modifiers;
+        let minRollSetInit = [];
+        for (let i = 0; i < castedX.min; i++) {
+            minRollSetInit.push(castedMin.min);
+        }
+        let minRollSet = castedMods.evalMin(minRollSetInit);
+        let maxRollSetInit = [];
+        for (let i = 0; i < castedX.max; i++) {
+            maxRollSetInit.push(castedMax.max);
+        }
+        let maxRollSet = castedMods.evalMax(maxRollSetInit);
+        let min = minRollSet.reduce((a, e) => a + e, 0);
+        let max = maxRollSet.reduce((a, e) => a + e, 0);
+        return new AccRange(min, max);
+    }
+    if (grammer.Parens.is(node)) {
+        let casted_keymap = keymap;
+        return casted_keymap.expression;
+    }
+    if (grammer.Rounder.is(node)) {
+        let casted_node = node;
+        let casted_keymap = keymap;
+        let doit = Math.floor;
+        if (casted_node.roundType === "c") {
+            doit = Math.ceil;
+        }
+        else if (casted_node.roundType === "r") {
+            doit = Math.round;
+        }
+        return new AccRange(doit(casted_keymap.thingToRound.min), doit(casted_keymap.thingToRound.max));
+    }
+    console.log('the node', node);
+    throw ({ message: "unknown node type", 'node': node });
+}
+function make_reducer(scope) {
+    return (a, b) => {
+        return reducer(a, b, scope);
+    };
+}
+function determine_min_max_possible(ast, scope) {
+    let red = make_reducer(scope);
+    return grammer.walk_ast(ast, { 'min': 0, 'max': 0 }, ast_defaulter, red);
+}
+/*
+function determine_min_max_possible(ast, scope){
+    if(ast instanceof grammer.Static){
+        return () => { a: ast.value, z: ast.value };
+    }
+    if(ast instanceof grammer.Lookup){
+        return () => {
+            let resolved = new evaluate.LookupR(ast, scope);
+            return { a: resolved.valueOf(), z: resolved.valueOf() }
+        }
+    }
+    if(ast instanceof grammer.Rounder){
+        return (minMaxAcc) => {
+            if(ast.roundType === "f"){
+                return {a: Math.floor(minMaxAcc.a), z: Math.floor(minMaxAcc.z)};
+            } else if(ast.roundType === "c"){
+                return {a: Math.ceil(minMaxAcc.a), z: Math.ceil(minMaxAcc.z)};
+            } else {
+                return {a: Math.round(minMaxAcc.a), z: Math.round(minMaxAcc.z)};
+            }
+        };
+    }
+    if(ast instanceof grammer.DiceRoll){
+        return () => {
+
+        }
+    }
+    if(opObject.op == 'd'){
+        var multipleMinMax = determine_min_max_possible(opObject.args[0], scope);
+        var randPartMinMax = determine_min_max_possible(opObject.args[1], scope);
+        var min = randPartMinMax[0] * multipleMinMax[0];
+        var max = randPartMinMax[1] * multipleMinMax[1];
+        return [min, max];
+    }
+    if(opObject.op == 'w'){
+        var multipleMinMax = determine_min_max_possible(opObject.args[0], scope);
+        var randPartMinMax = determine_min_max_possible(opObject.args[1], scope);
+        var min = randPartMinMax[0] * multipleMinMax[0];
+        var max = randPartMinMax[1] * multipleMinMax[1];
+        return [min, max];
+    }
+    if(opObject.op == 'random'){
+        var minMinMax = determine_min_max_possible(opObject.args[0], scope);
+        var maxMinMax = determine_min_max_possible(opObject.args[1], scope);
+        return [minMinMax[0], maxMinMax[1]];
+    }
+    if(opObject.op == 'sum'){
+        var minMaxes = opObject.addends.map(function(sumOp){
+            return [sumOp[0], determine_min_max_possible(sumOp[1], scope)];
+        });
+        var minMaxInit = minMaxes.shift();
+        var min = minMaxes.reduce(function(acc, sumOp){
+            if(sumOp[0] === '+'){
+                return acc + sumOp[1][0];
+            } else {
+                return acc - sumOp[1][1];
+            }
+        }, minMaxInit[1][0]);
+        var max = minMaxes.reduce(function(acc, sumOp){
+            if(sumOp[0] === '+'){
+                return acc + sumOp[1][1];
+            } else {
+                return acc - sumOp[1][0];
+            }
+        }, minMaxInit[1][1]);
+        return [min, max];
+    }
+    if(opObject.op == 'mult'){
+        var minMaxes = opObject.multiplicants.map(function(multOp){
+            return [multOp[0], determine_min_max_possible(multOp[1], scope)];
+        });
+        var minMaxInit = minMaxes.shift();
+        var min = minMaxes.reduce(function(acc, multOp){
+            if(multOp[0] === '*'){
+                return acc * multOp[1][0];
+            } else {
+                return acc / multOp[1][1];
+            }
+        }, minMaxInit[1][0]);
+        var max = minMaxes.reduce(function(acc, multOp){
+            if(multOp[0] === '*'){
+                return acc * multOp[1][1];
+            } else {
+                return acc / multOp[1][0];
+            }
+        }, minMaxInit[1][1]);
+        return [min, max];
+    }
+    if(opObject.op == 'paren_express'){
+        return determine_min_max_possible(opObject.args[0], scope);
+    }
+}*/
+
+},{"./evaluate":3,"./grammerAST":4,"./parser":5}],7:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.stringify_loop = exports.stringify = void 0;
