@@ -273,21 +273,23 @@ function peg$parse(input, options) {
   		return new ast.DiceRoll(x ?? undefined, undefined, max, mods ?? undefined);
   	};
   var peg$f3 = function(x, min, max, mods) {
-  		mods = mods ?? [];
+  		let modsObject = mods ?? new ast.RollSetModifiers([]);
+  		mods = modsObject.mods;
   		let wildMod = new ast.Explode("=", max, undefined, min, max);
   		mods.unshift(wildMod);
   		let properMods = new ast.RollSetModifiers(mods);
   		return new ast.DiceRoll(x ?? undefined, min, max, properMods);
   	};
   var peg$f4 = function(x, max, maybeMods) {
-  		let mods = maybeMods ?? [];
+  		let originalMods = maybeMods ?? new ast.RollSetModifiers([]);
+  		let mods = originalMods.mods;
   		let wildMod = new ast.Explode("=", max, undefined, 1, max);
   		mods.unshift(wildMod);
   		let properMods = new ast.RollSetModifiers(mods);
   		return new ast.DiceRoll(x ?? undefined, undefined, max, properMods);
   	};
-  var peg$f5 = function(min, max) {
-  		return new ast.DiceRoll(undefined, min, max, rollModifiers ?? undefined);
+  var peg$f5 = function(min, max, maybeMods) {
+  		return new ast.DiceRoll(undefined, min, max, maybeMods ?? undefined);
   	};
   var peg$f6 = function(s) {
   		return new ast.RollSetModifiers([s]);
@@ -335,7 +337,7 @@ function peg$parse(input, options) {
   		return new ast.RollSetModifiers(tail);
   	};
   var peg$f12 = function(action, dt, maybe_howMany) {
-  		let howMany = maybe_howMany[1] ?? undefined;
+  		let howMany = (maybe_howMany ?? [undefined, undefined])[1] ?? undefined;
   		dt = dt[1];
   		return new ast.KeepDrop(action, dt, howMany);
   	};
@@ -855,7 +857,7 @@ function peg$parse(input, options) {
                     s4 = null;
                   }
                   peg$savedPos = s0;
-                  s0 = peg$f5(s1, s3);
+                  s0 = peg$f5(s1, s3, s4);
                 } else {
                   peg$currPos = s0;
                   s0 = peg$FAILED;

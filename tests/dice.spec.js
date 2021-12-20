@@ -4,14 +4,14 @@ var evaluate = require('../src/evaluate.js');
 
 describe("Dice", function(){
 
-	xit("inits properly", function(){
+	it("inits properly", function(){
 		expect(dice).toBeDefined();
 		expect(dice.eval).toBeDefined();
 		expect(dice.parse).toBeDefined();
 		expect(dice.roll).toBeDefined();
 	});
 
-	xdescribe("can parse a variety of intputs", function(){
+	describe("can parse a variety of intputs", function(){
 		var strings =
 			["1"
 			,"1d6"
@@ -143,7 +143,7 @@ describe("Dice", function(){
 	});
 
 
-	xdescribe("Randomly generated rolls", function(){
+	describe("Randomly generated rolls", function(){
 		console.log(rand_roll_gen);
 		for(let i = 0; i < 100; i++){
 			let str = rand_roll_gen.start();
@@ -156,7 +156,7 @@ describe("Dice", function(){
 		}
 	})
 
-	xdescribe("Roll results", function(){
+	describe("Roll results", function(){
 
 		it("returns static numbers", function(){
 			var res = dice.roll("3");
@@ -338,14 +338,14 @@ describe("Dice", function(){
 			});
 		});
 
-		xit("evaluates simple statistics with no extra params", function(){
+		it("evaluates simple statistics with no extra params", function(){
 			var results = dice.statistics("1d1");
 			expect(results.min).toEqual(1);
 			expect(results.max).toEqual(1);
 			expect(results.mean).toEqual(1);
 		});
 
-		xit("evaluates simple statistics with only samples", function(){
+		it("evaluates simple statistics with only samples", function(){
 			var results = dice.statistics("1d1", 10);
 			expect(results.min).toEqual(1);
 			expect(results.results.length).toEqual(10);
@@ -353,14 +353,14 @@ describe("Dice", function(){
 			expect(results.mean).toEqual(1);
 		});
 
-		xit("evaluates simple statistics with only scope", function(){
+		it("evaluates simple statistics with only scope", function(){
 			var results = dice.statistics("1d[one]", {'one': 1});
 			expect(results.min).toEqual(1);
 			expect(results.max).toEqual(1);
 			expect(results.mean).toEqual(1);
 		});
 
-		xit("evaluates simple statistics with both scope and samples", function(){
+		it("evaluates simple statistics with both scope and samples", function(){
 			var results = dice.statistics("[one]d1", {'one': 1}, 50);
 			expect(results.min).toEqual(1);
 			expect(results.results.length).toEqual(50);
@@ -403,7 +403,7 @@ describe("Dice", function(){
 			expect(r1).toEqual(r2);
 		});
 
-		xit("treats 'W' and 'w' the same", function(){
+		it("treats 'W' and 'w' the same", function(){
 			var r1 = dice.statistics('1w6');
 			var r2 = dice.statistics('1W6');
 			expect(r1.min_possible).toEqual(r2.min_possible);
