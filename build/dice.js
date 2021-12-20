@@ -86,7 +86,7 @@ var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (
     if (typeof state === "function" ? receiver !== state || !f : !state.has(receiver)) throw new TypeError("Cannot read private member from an object whose class did not declare it");
     return kind === "m" ? f : kind === "a" ? f.call(receiver) : f ? f.value : state.get(receiver);
 };
-var _LookupR_lookupName, _DiceRollR_min, _DiceRollR_max, _DiceRollR_x, _DiceRollR_modifiers, _DiceRollR_rolls, _RollSetModifiersR_mods, _KeepDropModifier_action, _KeepDropModifier_direction, _KeepDropModifier_howMany, _RerollModifier_comparisonMode, _RerollModifier_comparisonValue, _RerollModifier_limit, _ExplodeModifier_comparisonMode, _ExplodeModifier_comparisonValue, _ExplodeModifier_limit, _RounderR_mode, _RounderR_thingRounded, _MathOpR_op, _MathOpR_opFunc, _MathOpR_operand, _MathOpListR_ops, _MathSeqR_ops, _MathSeqR_head, _ParensR_expression, _ResolveEngine_resolving, _ResolveEngine_allKeys, _ResolveEngine_keyItor, _ResolveEngine_currentKey, _ResolveEngine_keyMap, _ResolveEngine_scope, _ResolveEngine_resolved;
+var _LookupR_lookupName, _DiceRollR_min, _DiceRollR_max, _DiceRollR_x, _DiceRollR_modifiers, _DiceRollR_rolls, _RollSetModifiersR_mods, _KeepDropModifier_action, _KeepDropModifier_direction, _KeepDropModifier_howMany, _RerollModifier_comparisonMode, _RerollModifier_comparisonValue, _RerollModifier_limit, _ExplodeModifier_comparisonMode, _ExplodeModifier_comparisonValue, _ExplodeModifier_limit, _RounderR_mode, _RounderR_thingRounded, _MathOpR_op, _MathOpR_opFunc, _MathOpR_operand, _MathOpListR_ops, _MathSeqR_ops, _MathSeqR_head, _ParensR_expression;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.eval_default = exports.ParensR = exports.MathSeqR = exports.MathOpListR = exports.MathOpR = exports.RounderR = exports.ExplodeModifier = exports.RerollModifier = exports.KeepDropModifier = exports.RollSetModifiersR = exports.DiceRollR = exports.LookupR = exports.StaticR = exports.Resolver = void 0;
 let grammer = require("./grammerAST");
@@ -530,73 +530,71 @@ have been evaluated and which have yet to be. It is expected to be pushed onto
 and popped from a stack multiple times to have keys pulled, evaluated, and
 assigned.
 */
-class ResolveEngine {
-    constructor(thing, scope) {
-        _ResolveEngine_resolving.set(this, void 0);
-        _ResolveEngine_allKeys.set(this, []);
-        _ResolveEngine_keyItor.set(this, void 0);
-        _ResolveEngine_currentKey.set(this, void 0);
-        _ResolveEngine_keyMap.set(this, {});
-        _ResolveEngine_scope.set(this, {});
-        _ResolveEngine_resolved.set(this, void 0);
-        __classPrivateFieldSet(this, _ResolveEngine_resolving, thing, "f");
-        __classPrivateFieldSet(this, _ResolveEngine_scope, scope, "f");
-        __classPrivateFieldSet(this, _ResolveEngine_allKeys, thing.children(), "f");
-        __classPrivateFieldSet(this, _ResolveEngine_keyItor, __classPrivateFieldGet(this, _ResolveEngine_allKeys, "f").values(), "f");
-        __classPrivateFieldSet(this, _ResolveEngine_resolved, new StaticR(NaN), "f");
+/*class ResolveEngine<T extends AST> {
+    #resolving : T;
+    #allKeys : Array<keyof T> = [];
+    #keyItor;
+    #currentKey : keyof T | undefined;
+    #keyMap : Partial<Record<keyof T, Resolver>> = {};
+    #scope = {};
+    #resolved : Resolver;
+    constructor(thing : T, scope : object){
+        this.#resolving = thing;
+        this.#scope = scope;
+        this.#allKeys = thing.children();
+        this.#keyItor = this.#allKeys.values();
+        this.#resolved = new StaticR(NaN);
     }
-    get currentKey() {
-        return __classPrivateFieldGet(this, _ResolveEngine_currentKey, "f");
+    get currentKey(){
+        return this.#currentKey;
     }
-    get currentValue() {
-        if (__classPrivateFieldGet(this, _ResolveEngine_currentKey, "f") === undefined) {
+    get currentValue(){
+        if(this.#currentKey === undefined){
             return undefined;
         }
-        return __classPrivateFieldGet(this, _ResolveEngine_resolving, "f")[__classPrivateFieldGet(this, _ResolveEngine_currentKey, "f")];
+        return this.#resolving[this.#currentKey];
     }
-    get resolving() {
-        return __classPrivateFieldGet(this, _ResolveEngine_resolving, "f");
+    get resolving(){
+        return this.#resolving;
     }
-    get keyMap() {
-        return __classPrivateFieldGet(this, _ResolveEngine_keyMap, "f");
+    get keyMap(){
+        return this.#keyMap;
     }
-    get resolved() {
-        return __classPrivateFieldGet(this, _ResolveEngine_resolved, "f");
+    get resolved(){
+        return this.#resolved;
     }
-    get allKeys() {
-        return __classPrivateFieldGet(this, _ResolveEngine_allKeys, "f");
+    get allKeys(){
+        return this.#allKeys
     }
-    resetItor() {
-        __classPrivateFieldSet(this, _ResolveEngine_keyItor, __classPrivateFieldGet(this, _ResolveEngine_allKeys, "f").values(), "f");
-        __classPrivateFieldSet(this, _ResolveEngine_currentKey, undefined, "f");
+    resetItor(){
+        this.#keyItor = this.#allKeys.values();
+        this.#currentKey = undefined;
     }
-    next() {
-        let rawNext = __classPrivateFieldGet(this, _ResolveEngine_keyItor, "f").next();
-        __classPrivateFieldSet(this, _ResolveEngine_currentKey, rawNext.value, "f");
+    next(){
+        let rawNext = this.#keyItor.next();
+        this.#currentKey = rawNext.value;
         let outValue = {
             key: this.currentKey,
             value: this.currentValue,
             done: rawNext.done
-        };
+        }
         return outValue;
     }
-    setKey(key, value) {
-        __classPrivateFieldGet(this, _ResolveEngine_keyMap, "f")[key] = value;
+    setKey(key : keyof T, value : Resolver){
+        this.#keyMap[key] = value;
     }
-    setCurrent(value) {
-        if (this.currentKey === undefined) {
-            throw ("No current key. You either never called next, called next too often, or called next but didn't check the 'done' property.");
+    setCurrent(value : Resolver){
+        if(this.currentKey === undefined){
+            throw("No current key. You either never called next, called next too often, or called next but didn't check the 'done' property.");
+        } else {
+            this.#keyMap[this.currentKey] = value;
         }
-        else {
-            __classPrivateFieldGet(this, _ResolveEngine_keyMap, "f")[this.currentKey] = value;
-        }
     }
-    resolve() {
-        __classPrivateFieldSet(this, _ResolveEngine_resolved, eval_factory(__classPrivateFieldGet(this, _ResolveEngine_resolving, "f"), __classPrivateFieldGet(this, _ResolveEngine_keyMap, "f"), __classPrivateFieldGet(this, _ResolveEngine_scope, "f")), "f");
-        return __classPrivateFieldGet(this, _ResolveEngine_resolved, "f");
+    resolve(){
+        this.#resolved = eval_factory(this.#resolving, this.#keyMap, this.#scope);
+        return this.#resolved;
     }
-}
-_ResolveEngine_resolving = new WeakMap(), _ResolveEngine_allKeys = new WeakMap(), _ResolveEngine_keyItor = new WeakMap(), _ResolveEngine_currentKey = new WeakMap(), _ResolveEngine_keyMap = new WeakMap(), _ResolveEngine_scope = new WeakMap(), _ResolveEngine_resolved = new WeakMap();
+}*/
 function eval_factory(ast, keyMap, scope) {
     if (ast instanceof grammer.Static) {
         return eval_static(ast.value);
@@ -753,37 +751,44 @@ evaluations at times, it also ran the real risk of blowing out the stack, even
 on very shallow parenthetical statements. Thus, this potentially memory hungry
 solution.
 */
-function resolve_parsed(ast, scope) {
+/*function resolve_parsed(ast : AST, scope : object){
     let stepStack = [];
     let currentStep = new ResolveEngine(ast, scope);
     let evaled;
     let done = false;
     let finalVal;
-    while (!done) {
+    while(! done){
         let currentKeyVal = currentStep.next();
-        if (currentKeyVal.done) {
+        if(currentKeyVal.done){
             let resolvedVal = currentStep.resolve();
             let popped = stepStack.pop();
-            if (popped === undefined) {
+            if(popped === undefined){
                 console.log('all done');
                 done = true;
                 finalVal = resolvedVal;
-            }
-            else {
+            } else {
                 popped.setCurrent(resolvedVal);
                 currentStep = popped;
             }
-        }
-        else if (currentKeyVal.value === undefined) {
+        } else if(currentKeyVal.value === undefined){
             let resolvedVal = eval_default(currentKeyVal.key, currentStep.resolving);
             currentStep.setCurrent(resolvedVal);
-        }
-        else {
+        } else {
             stepStack.push(currentStep);
-            currentStep = new ResolveEngine(currentKeyVal.value, scope);
+            currentStep = new ResolveEngine((currentKeyVal.value as unknown as AST), scope);
         }
     }
     return finalVal;
+}*/
+function resolve_parsed(parsed, scope) {
+    let reducer = (ast, keymap) => {
+        return eval_factory(ast, keymap, scope);
+    };
+    let defaulter = (tree, node, key) => {
+        let mid = eval_default(key, node);
+        return mid.ast;
+    };
+    return grammer.walk_ast(parsed, undefined, defaulter, reducer);
 }
 exports.eval = function (parsed, scope) {
     scope = scope !== null && scope !== void 0 ? scope : {};

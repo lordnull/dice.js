@@ -351,7 +351,7 @@ export class MathOpR extends Resolver {
 		return this.#operand;
 	}
 	/* we use the commuted version so we don't have to worry to hard about
-	order of mutliple vs divider or subtract vs add. It means we can split up
+	order of multiply vs divider or subtract vs add. It means we can split up
 	operations based on pure multiply vs add lines, and just sum / multiple them
 	up. This makes the MathOpListR implementation simpler. */
 	get commute(){
@@ -438,78 +438,6 @@ export class ParensR extends Resolver {
 	}
 	get rolls(){
 		return this.#expression.rolls;
-	}
-}
-
-/* The resolve engine is a step in resolving an ast. Further down you'll find
-the while loop used to do the resolution. This class is a state of what keys
-have been evaluated and which have yet to be. It is expected to be pushed onto
-and popped from a stack multiple times to have keys pulled, evaluated, and
-assigned.
-*/
-class ResolveEngine<T extends AST> {
-	#resolving : T;
-	#allKeys : Array<keyof T> = [];
-	#keyItor;
-	#currentKey : keyof T | undefined;
-	#keyMap : Partial<Record<keyof T, Resolver>> = {};
-	#scope = {};
-	#resolved : Resolver;
-	constructor(thing : T, scope : object){
-		this.#resolving = thing;
-		this.#scope = scope;
-		this.#allKeys = thing.children();
-		this.#keyItor = this.#allKeys.values();
-		this.#resolved = new StaticR(NaN);
-	}
-	get currentKey(){
-		return this.#currentKey;
-	}
-	get currentValue(){
-		if(this.#currentKey === undefined){
-			return undefined;
-		}
-		return this.#resolving[this.#currentKey];
-	}
-	get resolving(){
-		return this.#resolving;
-	}
-	get keyMap(){
-		return this.#keyMap;
-	}
-	get resolved(){
-		return this.#resolved;
-	}
-	get allKeys(){
-		return this.#allKeys
-	}
-	resetItor(){
-		this.#keyItor = this.#allKeys.values();
-		this.#currentKey = undefined;
-	}
-	next(){
-		let rawNext = this.#keyItor.next();
-		this.#currentKey = rawNext.value;
-		let outValue = {
-			key: this.currentKey,
-			value: this.currentValue,
-			done: rawNext.done
-		}
-		return outValue;
-	}
-	setKey(key : keyof T, value : Resolver){
-		this.#keyMap[key] = value;
-	}
-	setCurrent(value : Resolver){
-		if(this.currentKey === undefined){
-			throw("No current key. You either never called next, called next too often, or called next but didn't check the 'done' property.");
-		} else {
-			this.#keyMap[this.currentKey] = value;
-		}
-	}
-	resolve(){
-		this.#resolved = eval_factory(this.#resolving, this.#keyMap, this.#scope);
-		return this.#resolved;
 	}
 }
 
@@ -672,40 +600,15 @@ export function eval_default<T extends AST>(key : keyof T | undefined, thing : T
 	throw("If you got here, somehow parsing allowed things that should not be null to be null");
 }
 
-/* The old version was a more functional style. Each ast node was a function
-that could evaluate itself. That, however, lead not only to very slow
-evaluations at times, it also ran the real risk of blowing out the stack, even
-on very shallow parenthetical statements. Thus, this potentially memory hungry
-solution.
-*/
-function resolve_parsed(ast : AST, scope : object){
-	let stepStack = [];
-	let currentStep = new ResolveEngine(ast, scope);
-	let evaled;
-	let done = false;
-	let finalVal;
-	while(! done){
-		let currentKeyVal = currentStep.next();
-		if(currentKeyVal.done){
-			let resolvedVal = currentStep.resolve();
-			let popped = stepStack.pop();
-			if(popped === undefined){
-				console.log('all done');
-				done = true;
-				finalVal = resolvedVal;
-			} else {
-				popped.setCurrent(resolvedVal);
-				currentStep = popped;
-			}
-		} else if(currentKeyVal.value === undefined){
-			let resolvedVal = eval_default(currentKeyVal.key, currentStep.resolving);
-			currentStep.setCurrent(resolvedVal);
-		} else {
-			stepStack.push(currentStep);
-			currentStep = new ResolveEngine((currentKeyVal.value as unknown as AST), scope);
-		}
+function resolve_parsed<T extends AST>(parsed: T, scope : Object){
+	let reducer = (ast : T, keymap : grammerTypes.KeyMap<T, Resolver>) => {
+		return eval_factory(ast, keymap, scope);
 	}
-	return finalVal;
+	let defaulter = (tree : any, node : T, key : keyof T) => {
+		let mid = eval_default(key, node);
+		return mid.ast;
+	}
+	return grammer.walk_ast(parsed, undefined, defaulter, reducer);
 }
 
 exports.eval = function(parsed : AST, scope : object){
