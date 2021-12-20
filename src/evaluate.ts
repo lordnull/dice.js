@@ -1,3 +1,12 @@
+/*
+This is the default evaluator for the dice roll abstract syntax tree as defined
+in 'grammerAST'. This is what the readme references when it specs of specific
+behaviors, such as what the round syntax actually does, and the default limit
+of explode or reroll.
+
+The classes here mainly mirror those in the grammer. The mirror is the classes
+here are used to accumulate the total value of the roll.
+*/
 
 let grammer = require("./grammerAST");
 
@@ -6,6 +15,9 @@ import type * as grammerTypes from "./grammerAST";
 
 type ANumber = number | Number;
 
+/* A helper class that defines the number / rolls we're gathering as we go,
+as well as the rollset we've seen to facilitate data introspection.
+*/
 export class Resolver extends Number {
 	ast : AST;
 	constructor(n : ANumber | undefined, ast : AST){
@@ -22,8 +34,6 @@ export class StaticR extends Resolver {
 		super(n, new grammer.Static(n));
 	}
 }
-
-//type ObjectActual = Record<string, number | string | ObjectActual >;
 
 export class LookupR extends Resolver {
 	#lookupName;
@@ -63,8 +73,10 @@ export class LookupR extends Resolver {
 
 type MiniDice = { min : Resolver, max : Resolver, x : Resolver};
 
-// Ugh, just to work around a stupid ts limitation.
-// "nothing before super" they say, but I need to calculate stuff!
+// Typescript has a strange limitation where you cannot have any statements
+// before a class calls 'super' in it's constructor. I need to calculate stuff
+// that cannot easily be done within those confines, thus this ugly hack.
+// Typescript is too strict here.
 let resultSetInstance : Number[] = [];
 
 export class DiceRollR extends Resolver{
@@ -107,11 +119,6 @@ export class DiceRollR extends Resolver{
 		let diff = max.valueOf() - min.valueOf();
 		rawRandom = diff * rawRandom;
 		return Math.round(rawRandom + min.valueOf());
-		//let rndNumber = Math.round(rawRandom + min.valueOf());
-		/*rndNumber = new Number(rndNumber);
-		rndNumber.min = min;
-		rndNumber.max = max;
-		return rndNumber;*/
 	};
 	static resultSet(x : Resolver, min : Resolver, max : Resolver){
 		let out = [];
@@ -343,6 +350,10 @@ export class MathOpR extends Resolver {
 	get operand(){
 		return this.#operand;
 	}
+	/* we use the commuted version so we don't have to worry to hard about
+	order of mutliple vs divider or subtract vs add. It means we can split up
+	operations based on pure multiply vs add lines, and just sum / multiple them
+	up. This makes the MathOpListR implementation simpler. */
 	get commute(){
 		if(this.op === "-"){
 			return new MathOpR("+", new StaticR(this.#operand.valueOf() * -1), this.ast);
@@ -430,13 +441,18 @@ export class ParensR extends Resolver {
 	}
 }
 
+/* The resolve engine is a step in resolving an ast. Further down you'll find
+the while loop used to do the resolution. This class is a state of what keys
+have been evaluated and which have yet to be. It is expected to be pushed onto
+and popped from a stack multiple times to have keys pulled, evaluated, and
+assigned.
+*/
 class ResolveEngine<T extends AST> {
 	#resolving : T;
 	#allKeys : Array<keyof T> = [];
 	#keyItor;
 	#currentKey : keyof T | undefined;
 	#keyMap : Partial<Record<keyof T, Resolver>> = {};
-	//#done = false;
 	#scope = {};
 	#resolved : Resolver;
 	constructor(thing : T, scope : object){
@@ -444,13 +460,8 @@ class ResolveEngine<T extends AST> {
 		this.#scope = scope;
 		this.#allKeys = thing.children();
 		this.#keyItor = this.#allKeys.values();
-		//this.#keysLeft = new Set(this.resolving.children).keys();
-		//this.#next();
 		this.#resolved = new StaticR(NaN);
 	}
-	/*get done(){
-		return this.#done;
-	}*/
 	get currentKey(){
 		return this.#currentKey;
 	}
@@ -463,9 +474,6 @@ class ResolveEngine<T extends AST> {
 	get resolving(){
 		return this.#resolving;
 	}
-	/*get keysLeft(){
-		return this.#keysLeft;
-	}*/
 	get keyMap(){
 		return this.#keyMap;
 	}
@@ -503,40 +511,8 @@ class ResolveEngine<T extends AST> {
 		this.#resolved = eval_factory(this.#resolving, this.#keyMap, this.#scope);
 		return this.#resolved;
 	}
-	/*next(value){
-		if(this.done){
-			return;
-		}
-		if(this.#currentKey === undefined){
-			return;
-		}
-		this.#keyMap[this.#currentKey] = value;
-		this.#next();
-	}
-	#next(){
-		let out = this.#keysLeft.next();
-		this.#done = out.done ?? false;
-		this.#currentKey = out.value;
-		if(this.#done){
-			this.#resolved = eval_factory(this.#resolving, this.#keyMap, this.#scope);
-		} else {
-			this.#currentKey = out.value;
-		}
-	}*/
 }
 
-/*function eval_factory(ast : grammerTypes.Static, keyMap : Partial<Record<keyof grammerTypes.Static, Resolver>>, scope : object) : StaticR;
-function eval_factory(ast : grammerTypes.Lookup, keyMap : Partial<Record<keyof grammerTypes.Lookup, Resolver>>, scope : object) : LookupR;
-function eval_factory(ast : grammerTypes.RollSetModifiers, keyMap : Partial<Record<keyof grammerTypes.RollSetModifiers, Resolver>>, scope : object) : RollSetModifiersR;
-function eval_factory(ast : grammerTypes.KeepDrop, keyMap : Partial<Record<keyof grammerTypes.KeepDrop, Resolver>>, scope : object) : KeepDropModifier;
-function eval_factory(ast : grammerTypes.ReRoll, keyMap : Partial<Record<keyof grammerTypes.ReRoll, Resolver>>, scope : object) : RerollModifier;
-function eval_factory(ast : grammerTypes.Explode, keyMap : Partial<Record<keyof grammerTypes.Explode, Resolver>>, scope : object) : ExplodeModifier;
-function eval_factory(ast : grammerTypes.MathOp, keyMap : Partial<Record<keyof grammerTypes.MathOp, Resolver>>, scope : object) : MathOpR;
-function eval_factory(ast : grammerTypes.MathOpList, keyMap : Partial<Record<keyof grammerTypes.MathOpList, Resolver>>, scope : object) : MathOpListR;
-function eval_factory(ast : grammerTypes.MathSeq, keyMap : Partial<Record<keyof grammerTypes.MathSeq, Resolver>>, scope : object) : MathSeqR;
-function eval_factory(ast : grammerTypes.Rounder, keyMap : Partial<Record<keyof grammerTypes.Rounder, Resolver>>, scope : object) : RounderR;
-function eval_factory(ast : grammerTypes.Parens, keyMap : Partial<Record<keyof grammerTypes.Parens, Resolver>>, scope : object) : ParensR;
-function eval_factory(ast : grammerTypes.DiceRoll, keyMap : Partial<Record<keyof grammerTypes.DiceRoll, Resolver>>, scope : object) : DiceRollR;*/
 function eval_factory<T extends AST>(ast : T, keyMap : Partial<Record<keyof T, Resolver>>, scope : object) : Resolver{
 	if(ast instanceof grammer.Static){
 		return eval_static((ast as unknown as grammerTypes.Static).value);
@@ -696,6 +672,12 @@ export function eval_default<T extends AST>(key : keyof T | undefined, thing : T
 	throw("If you got here, somehow parsing allowed things that should not be null to be null");
 }
 
+/* The old version was a more functional style. Each ast node was a function
+that could evaluate itself. That, however, lead not only to very slow
+evaluations at times, it also ran the real risk of blowing out the stack, even
+on very shallow parenthetical statements. Thus, this potentially memory hungry
+solution.
+*/
 function resolve_parsed(ast : AST, scope : object){
 	let stepStack = [];
 	let currentStep = new ResolveEngine(ast, scope);
