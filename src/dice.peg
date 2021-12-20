@@ -2,6 +2,9 @@
 let ast = require("./grammerAST");
 }}
 
+// I am explicitly _not_ adding default values here so that any parses or
+// or ast walkers can define them as they see fit.
+
 start
 	= mathSeq
 

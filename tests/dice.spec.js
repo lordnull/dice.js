@@ -435,7 +435,6 @@ describe("Dice", function(){
 			// while min is smallest possible numberator / highest possible denominator
 			{str: "3d6 / 2d[v10]", min: 0.15, max: 9},
 			// 2d6 * 3 + 1 / 2d6 + 1
-			// 6..36 + (1/2..1/12) + 1
 			{str: "[v2]d6 * 3 + [v1] / f(5 / 2)d6 + 1", min: sigDigs(7 + (1/12)), max: 37.5},
 			{str: "f(2d10)w10", min: 2, max: 200},
 			{str: "3 + r(7 / 2)d10", min: 7, max: 43},

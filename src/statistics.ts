@@ -1,3 +1,5 @@
+/* Run some very basic statistics against a roll string with a given scope.
+*/
 let grammer = require("./grammerAST");
 let parser  = require('./parser');
 let evaluate = require("./evaluate");
@@ -11,6 +13,8 @@ function roll(str : string, scope : object){
 	return evaled;
 }
 
+/* The primary function to analyse a roll string.
+*/
 export function analyse(str : string, scope : Record<string, any> | number, samples : number | undefined){
 	if(typeof(scope) === "number"){
 		samples = scope;
@@ -41,6 +45,8 @@ export function analyse(str : string, scope : Record<string, any> | number, samp
 	};
 };
 
+/* What to use when an ast node is undefined.
+*/
 function ast_defaulter<T>(tree : any, node : T, key : keyof T) {
 	let resolveType = evaluate.eval_default(key, node);
 	return resolveType.ast;
@@ -48,6 +54,9 @@ function ast_defaulter<T>(tree : any, node : T, key : keyof T) {
 
 type AstHint = "+" | "-" | "*" | "/" | "static";
 
+/* After this, most classes mimic the grammerAST classes. The AccRange here
+is simple a definition of an interface to make accumulation easier.
+*/
 class AccRange {
 	min : number;
 	max : number;
@@ -343,98 +352,3 @@ function determine_min_max_possible<T extends AST>(ast : T, scope : object){
 	let red = make_reducer(scope);
 	return grammer.walk_ast(ast, {'min': 0, 'max': 0}, ast_defaulter, red);
 }
-
-
-
-/*
-function determine_min_max_possible(ast, scope){
-	if(ast instanceof grammer.Static){
-		return () => { a: ast.value, z: ast.value };
-	}
-	if(ast instanceof grammer.Lookup){
-		return () => {
-			let resolved = new evaluate.LookupR(ast, scope);
-			return { a: resolved.valueOf(), z: resolved.valueOf() }
-		}
-	}
-	if(ast instanceof grammer.Rounder){
-		return (minMaxAcc) => {
-			if(ast.roundType === "f"){
-				return {a: Math.floor(minMaxAcc.a), z: Math.floor(minMaxAcc.z)};
-			} else if(ast.roundType === "c"){
-				return {a: Math.ceil(minMaxAcc.a), z: Math.ceil(minMaxAcc.z)};
-			} else {
-				return {a: Math.round(minMaxAcc.a), z: Math.round(minMaxAcc.z)};
-			}
-		};
-	}
-	if(ast instanceof grammer.DiceRoll){
-		return () => {
-
-		}
-	}
-	if(opObject.op == 'd'){
-		var multipleMinMax = determine_min_max_possible(opObject.args[0], scope);
-		var randPartMinMax = determine_min_max_possible(opObject.args[1], scope);
-		var min = randPartMinMax[0] * multipleMinMax[0];
-		var max = randPartMinMax[1] * multipleMinMax[1];
-		return [min, max];
-	}
-	if(opObject.op == 'w'){
-		var multipleMinMax = determine_min_max_possible(opObject.args[0], scope);
-		var randPartMinMax = determine_min_max_possible(opObject.args[1], scope);
-		var min = randPartMinMax[0] * multipleMinMax[0];
-		var max = randPartMinMax[1] * multipleMinMax[1];
-		return [min, max];
-	}
-	if(opObject.op == 'random'){
-		var minMinMax = determine_min_max_possible(opObject.args[0], scope);
-		var maxMinMax = determine_min_max_possible(opObject.args[1], scope);
-		return [minMinMax[0], maxMinMax[1]];
-	}
-	if(opObject.op == 'sum'){
-		var minMaxes = opObject.addends.map(function(sumOp){
-			return [sumOp[0], determine_min_max_possible(sumOp[1], scope)];
-		});
-		var minMaxInit = minMaxes.shift();
-		var min = minMaxes.reduce(function(acc, sumOp){
-			if(sumOp[0] === '+'){
-				return acc + sumOp[1][0];
-			} else {
-				return acc - sumOp[1][1];
-			}
-		}, minMaxInit[1][0]);
-		var max = minMaxes.reduce(function(acc, sumOp){
-			if(sumOp[0] === '+'){
-				return acc + sumOp[1][1];
-			} else {
-				return acc - sumOp[1][0];
-			}
-		}, minMaxInit[1][1]);
-		return [min, max];
-	}
-	if(opObject.op == 'mult'){
-		var minMaxes = opObject.multiplicants.map(function(multOp){
-			return [multOp[0], determine_min_max_possible(multOp[1], scope)];
-		});
-		var minMaxInit = minMaxes.shift();
-		var min = minMaxes.reduce(function(acc, multOp){
-			if(multOp[0] === '*'){
-				return acc * multOp[1][0];
-			} else {
-				return acc / multOp[1][1];
-			}
-		}, minMaxInit[1][0]);
-		var max = minMaxes.reduce(function(acc, multOp){
-			if(multOp[0] === '*'){
-				return acc * multOp[1][1];
-			} else {
-				return acc / multOp[1][0];
-			}
-		}, minMaxInit[1][1]);
-		return [min, max];
-	}
-	if(opObject.op == 'paren_express'){
-		return determine_min_max_possible(opObject.args[0], scope);
-	}
-}*/

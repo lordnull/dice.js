@@ -1,9 +1,10 @@
-// a common place for both evaludate.js and dice.peg to agree on a
-// representation of the concepts used in dice.js.
-// as well as some implementation details.
-// 90% of this work is an attempt to avoid exploding the call stack like the
-// old implementation could.
+/* A representation of a dice syntax tree. This allows the various other
+modules to work on a well typed tree rather than just 'knowing' about
+function names and arguments. In addition to defining the nodes of the AST,
+it also provides a helper class for walking the tree.
+*/
 
+// Used to create a generic keymap of a node.
 type PropEntry<T> = T[keyof T] extends AST ? keyof T : never;
 
 export interface AST {
@@ -12,7 +13,9 @@ export interface AST {
 
 type OrUndef<T> = undefined | T;
 
-
+/* A raw number.
+    5
+*/
 export class Static implements AST{
 	#value : number;
 	constructor(val : number){
@@ -29,6 +32,9 @@ export class Static implements AST{
 	}
 }
 
+/* The lookup syntax:
+     [some name]
+*/
 export class Lookup implements AST {
 	#lookupName : string;
 	get lookupName(){
@@ -45,6 +51,9 @@ export class Lookup implements AST {
 	}
 }
 
+/* A set of roll modifiers. Usually empty.
+    { rollModifer; ... }
+*/
 export class RollSetModifiers implements AST {
 	#mods : RollSetModifier[] = [];
 	#kidKeys : number[] = [];
@@ -86,6 +95,16 @@ export class RollSetModifiers implements AST {
 
 type RollSetModifier = KeepDrop | ReRoll | Explode;
 
+/* The keep or drop roll modifier, either simple or not.
+    :kh3
+    keep highest 3
+    :dl1
+    drop lowest 1
+    :kl2
+    keep lowest 2
+    :dh7
+    drop highest 7
+    */
 type KeepDropAction = "keep" | "drop";
 type KeepDropDirection = "highest" | "lowest";
 export class KeepDrop implements AST {
@@ -122,6 +141,13 @@ type ComparisonStr
 	| "<"
 	| "<=";
 
+/* when to reroll a die.
+    :rr
+    reroll // reroll on die min an undefined number of times.
+    :rr1
+    reroll 1x // reroll on die min once.
+    reroll <3 5x
+    */
 export class ReRoll implements AST {
 	#comparisonStr : OrUndef<ComparisonStr>;
 	#compareToVal : OrUndef<MathSeq | Parens>;
@@ -148,6 +174,12 @@ export class ReRoll implements AST {
 	}
 }
 
+/* the 'explode' or wild die representation.
+    1w6
+    1W6
+    explode 1x
+    explode >5 3x
+    */
 export class Explode implements AST {
 	#comparisonStr : OrUndef<ComparisonStr>
 	#compareToVal : OrUndef<MathSeq | Parens>;
@@ -179,6 +211,9 @@ type AsInteger
 	| Lookup
 	| Rounder;
 
+/* The reason you're here, a dice roll. Most parts end up being optional, but
+we need at least a maximum defined.
+*/
 export class DiceRoll implements AST {
 	#x : OrUndef<AsInteger>
 	#min : OrUndef<AsInteger>
@@ -218,6 +253,14 @@ export class DiceRoll implements AST {
 
 type RoundType = "c" | "f" | "r";
 
+/* floor, ceiling, and basic rounding.
+    f( )
+    c( )
+    r( )
+    f[ ]
+    c[ ]
+    r[ ]
+    */
 export class Rounder implements AST {
 	#roundType : RoundType = "r";
 	#thingToRound;
@@ -252,6 +295,9 @@ type Mathable
 	| Lookup
 	| Rounder;
 
+/* A math operator and the next "number" in the sequence. Used as part of
+a MathOpList.
+*/
 export class MathOp implements AST {
 	#opStr : MathOpStr = "+";
 	#val : Mathable
@@ -273,6 +319,8 @@ export class MathOp implements AST {
 	}
 }
 
+/* A walkable version of an array of mathops.
+*/
 export class MathOpList implements AST {
 	#ops : MathOp[] = [];
 	#kidKeys : number[] = [];
@@ -309,6 +357,8 @@ export class MathOpList implements AST {
 	}
 }
 
+/* Defines the 'acc' for the fold of a MathOpList.
+*/
 export class MathSeq implements AST {
 	#ops : MathOpList = new MathOpList([]);
 	#head : Mathable;
@@ -330,6 +380,8 @@ export class MathSeq implements AST {
 	}
 }
 
+/* Because sometimes the order of operations is not what we need.
+*/
 export class Parens implements AST {
 	#expression : AST;
 	constructor(express : AST){
@@ -346,15 +398,32 @@ export class Parens implements AST {
 	}
 }
 
+/* Helper type when defining a tree walker.
+*/
 export type KeyMap<T extends AST, Acc> = Record<keyof T, Acc>;
 
+/* When walking an AST, sometimes a child node will be undefined, thus
+a way to defined a default.
+*/
 interface DefineDefault {
 	<T extends AST, A extends AST>(ast : T[], node : T, key: keyof T) : A;
 }
+
+/* When walking an AST, we need to know how to take the keymap we've been
+building up and turn it into whatever sausage the tree walker ultimately
+wants.
+*/
 interface TreeReducer<Acc> {
 	<T extends AST>(ast : T, keymap : KeyMap<T, Acc>) : Acc;
 }
 
+/* A state holder when walking an AST. It holds a node, an iterator of that
+node's children, and a keymap to feed to an accumulator once it has been fully
+walked. The intent is a node would be the tree, a new step created, then for
+each child of the node. this step is pushed onto a stack, and we repeat at the
+'node in the tree' point until there are no children to walk to. A deeper
+explanation is at the 'walk_ast' function.
+*/
 export class TreeWalkerStep<T extends AST, Acc> {
 	#currentNode: T;
 	#allKeys: Array<keyof T> = [];
@@ -423,28 +492,29 @@ export class TreeWalkerStep<T extends AST, Acc> {
 			this.#keyMapAcc[this.currentKey] = value;
 		}
 	}
-	/*next(value){
-		if(this.done){
-			return;
-		}
-		if(this.#currentKey === undefined){
-			return;
-		}
-		this.#keyMap[this.#currentKey] = value;
-		this.#next();
-	}
-	#next(){
-		let out = this.#keysLeft.next();
-		this.#done = out.done ?? false;
-		this.#currentKey = out.value;
-		if(this.#done){
-			this.#resolved = eval_factory(this.#resolving, this.#keyMap, this.#scope);
-		} else {
-			this.#currentKey = out.value;
-		}
-	}*/
 }
 
+/* Given a way to deal with missing children, and what to do once a leaf
+node is found, walk the ast building up an accumulator. It's a big loop to
+avoid blowing out the call stack. State is a stack of TreeWalkerStep's. It
+worketh thusly:
+
+Given a node, create a new TreeWalkerStep.
+While there are unwalked to children of the node:
+    Get the 'first' unwalked child.
+    If the child is undefined, define it using the DefineDefault.
+    Push the current TreeWalkerStep onto the stack.
+    Set the child as the given node,
+    loop around.
+    pop a TreeWalkerStep off the stack.
+    Assign the child to the current working key
+    If there are no children left to walk
+        call the accumulator
+        pop
+        loop around
+    else
+        walk next child / loop around
+*/
 export function walk_ast<Acc>(ast : AST, defaultAcc : Acc, defaulter : DefineDefault, reducer : TreeReducer<Acc>) : Acc | undefined{
 	let stepStack : TreeWalkerStep<AST, Acc>[] = [];
 	let currentStep : TreeWalkerStep<AST, Acc> = new TreeWalkerStep(ast);

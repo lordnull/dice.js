@@ -66,6 +66,15 @@ for(k in dice){
 
 },{"../package":1,"./evaluate":3,"./grammerAST":4,"./parser":5,"./statistics":6,"./stringify":7}],3:[function(require,module,exports){
 "use strict";
+/*
+This is the default evaluator for the dice roll abstract syntax tree as defined
+in 'grammerAST'. This is what the readme references when it specs of specific
+behaviors, such as what the round syntax actually does, and the default limit
+of explode or reroll.
+
+The classes here mainly mirror those in the grammer. The mirror is the classes
+here are used to accumulate the total value of the roll.
+*/
 var __classPrivateFieldSet = (this && this.__classPrivateFieldSet) || function (receiver, state, value, kind, f) {
     if (kind === "m") throw new TypeError("Private method is not writable");
     if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
@@ -81,6 +90,9 @@ var _LookupR_lookupName, _DiceRollR_min, _DiceRollR_max, _DiceRollR_x, _DiceRoll
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.eval_default = exports.ParensR = exports.MathSeqR = exports.MathOpListR = exports.MathOpR = exports.RounderR = exports.ExplodeModifier = exports.RerollModifier = exports.KeepDropModifier = exports.RollSetModifiersR = exports.DiceRollR = exports.LookupR = exports.StaticR = exports.Resolver = void 0;
 let grammer = require("./grammerAST");
+/* A helper class that defines the number / rolls we're gathering as we go,
+as well as the rollset we've seen to facilitate data introspection.
+*/
 class Resolver extends Number {
     constructor(n, ast) {
         super(n);
@@ -97,7 +109,6 @@ class StaticR extends Resolver {
     }
 }
 exports.StaticR = StaticR;
-//type ObjectActual = Record<string, number | string | ObjectActual >;
 class LookupR extends Resolver {
     constructor(name, scope) {
         super(LookupR.deepSeek(name, scope), new grammer.Lookup(name));
@@ -136,8 +147,10 @@ class LookupR extends Resolver {
 }
 exports.LookupR = LookupR;
 _LookupR_lookupName = new WeakMap();
-// Ugh, just to work around a stupid ts limitation.
-// "nothing before super" they say, but I need to calculate stuff!
+// Typescript has a strange limitation where you cannot have any statements
+// before a class calls 'super' in it's constructor. I need to calculate stuff
+// that cannot easily be done within those confines, thus this ugly hack.
+// Typescript is too strict here.
 let resultSetInstance = [];
 class DiceRollR extends Resolver {
     constructor(x, min, max, modifiers, ast) {
@@ -179,11 +192,6 @@ class DiceRollR extends Resolver {
         let diff = max.valueOf() - min.valueOf();
         rawRandom = diff * rawRandom;
         return Math.round(rawRandom + min.valueOf());
-        //let rndNumber = Math.round(rawRandom + min.valueOf());
-        /*rndNumber = new Number(rndNumber);
-        rndNumber.min = min;
-        rndNumber.max = max;
-        return rndNumber;*/
     }
     ;
     static resultSet(x, min, max) {
@@ -420,6 +428,10 @@ class MathOpR extends Resolver {
     get operand() {
         return __classPrivateFieldGet(this, _MathOpR_operand, "f");
     }
+    /* we use the commuted version so we don't have to worry to hard about
+    order of mutliple vs divider or subtract vs add. It means we can split up
+    operations based on pure multiply vs add lines, and just sum / multiple them
+    up. This makes the MathOpListR implementation simpler. */
     get commute() {
         if (this.op === "-") {
             return new MathOpR("+", new StaticR(__classPrivateFieldGet(this, _MathOpR_operand, "f").valueOf() * -1), this.ast);
@@ -512,6 +524,12 @@ class ParensR extends Resolver {
 }
 exports.ParensR = ParensR;
 _ParensR_expression = new WeakMap();
+/* The resolve engine is a step in resolving an ast. Further down you'll find
+the while loop used to do the resolution. This class is a state of what keys
+have been evaluated and which have yet to be. It is expected to be pushed onto
+and popped from a stack multiple times to have keys pulled, evaluated, and
+assigned.
+*/
 class ResolveEngine {
     constructor(thing, scope) {
         _ResolveEngine_resolving.set(this, void 0);
@@ -519,20 +537,14 @@ class ResolveEngine {
         _ResolveEngine_keyItor.set(this, void 0);
         _ResolveEngine_currentKey.set(this, void 0);
         _ResolveEngine_keyMap.set(this, {});
-        //#done = false;
         _ResolveEngine_scope.set(this, {});
         _ResolveEngine_resolved.set(this, void 0);
         __classPrivateFieldSet(this, _ResolveEngine_resolving, thing, "f");
         __classPrivateFieldSet(this, _ResolveEngine_scope, scope, "f");
         __classPrivateFieldSet(this, _ResolveEngine_allKeys, thing.children(), "f");
         __classPrivateFieldSet(this, _ResolveEngine_keyItor, __classPrivateFieldGet(this, _ResolveEngine_allKeys, "f").values(), "f");
-        //this.#keysLeft = new Set(this.resolving.children).keys();
-        //this.#next();
         __classPrivateFieldSet(this, _ResolveEngine_resolved, new StaticR(NaN), "f");
     }
-    /*get done(){
-        return this.#done;
-    }*/
     get currentKey() {
         return __classPrivateFieldGet(this, _ResolveEngine_currentKey, "f");
     }
@@ -545,9 +557,6 @@ class ResolveEngine {
     get resolving() {
         return __classPrivateFieldGet(this, _ResolveEngine_resolving, "f");
     }
-    /*get keysLeft(){
-        return this.#keysLeft;
-    }*/
     get keyMap() {
         return __classPrivateFieldGet(this, _ResolveEngine_keyMap, "f");
     }
@@ -588,18 +597,6 @@ class ResolveEngine {
     }
 }
 _ResolveEngine_resolving = new WeakMap(), _ResolveEngine_allKeys = new WeakMap(), _ResolveEngine_keyItor = new WeakMap(), _ResolveEngine_currentKey = new WeakMap(), _ResolveEngine_keyMap = new WeakMap(), _ResolveEngine_scope = new WeakMap(), _ResolveEngine_resolved = new WeakMap();
-/*function eval_factory(ast : grammerTypes.Static, keyMap : Partial<Record<keyof grammerTypes.Static, Resolver>>, scope : object) : StaticR;
-function eval_factory(ast : grammerTypes.Lookup, keyMap : Partial<Record<keyof grammerTypes.Lookup, Resolver>>, scope : object) : LookupR;
-function eval_factory(ast : grammerTypes.RollSetModifiers, keyMap : Partial<Record<keyof grammerTypes.RollSetModifiers, Resolver>>, scope : object) : RollSetModifiersR;
-function eval_factory(ast : grammerTypes.KeepDrop, keyMap : Partial<Record<keyof grammerTypes.KeepDrop, Resolver>>, scope : object) : KeepDropModifier;
-function eval_factory(ast : grammerTypes.ReRoll, keyMap : Partial<Record<keyof grammerTypes.ReRoll, Resolver>>, scope : object) : RerollModifier;
-function eval_factory(ast : grammerTypes.Explode, keyMap : Partial<Record<keyof grammerTypes.Explode, Resolver>>, scope : object) : ExplodeModifier;
-function eval_factory(ast : grammerTypes.MathOp, keyMap : Partial<Record<keyof grammerTypes.MathOp, Resolver>>, scope : object) : MathOpR;
-function eval_factory(ast : grammerTypes.MathOpList, keyMap : Partial<Record<keyof grammerTypes.MathOpList, Resolver>>, scope : object) : MathOpListR;
-function eval_factory(ast : grammerTypes.MathSeq, keyMap : Partial<Record<keyof grammerTypes.MathSeq, Resolver>>, scope : object) : MathSeqR;
-function eval_factory(ast : grammerTypes.Rounder, keyMap : Partial<Record<keyof grammerTypes.Rounder, Resolver>>, scope : object) : RounderR;
-function eval_factory(ast : grammerTypes.Parens, keyMap : Partial<Record<keyof grammerTypes.Parens, Resolver>>, scope : object) : ParensR;
-function eval_factory(ast : grammerTypes.DiceRoll, keyMap : Partial<Record<keyof grammerTypes.DiceRoll, Resolver>>, scope : object) : DiceRollR;*/
 function eval_factory(ast, keyMap, scope) {
     if (ast instanceof grammer.Static) {
         return eval_static(ast.value);
@@ -750,6 +747,12 @@ function eval_default(key, thing) {
     throw ("If you got here, somehow parsing allowed things that should not be null to be null");
 }
 exports.eval_default = eval_default;
+/* The old version was a more functional style. Each ast node was a function
+that could evaluate itself. That, however, lead not only to very slow
+evaluations at times, it also ran the real risk of blowing out the stack, even
+on very shallow parenthetical statements. Thus, this potentially memory hungry
+solution.
+*/
 function resolve_parsed(ast, scope) {
     let stepStack = [];
     let currentStep = new ResolveEngine(ast, scope);
@@ -789,11 +792,11 @@ exports.eval = function (parsed, scope) {
 
 },{"./grammerAST":4}],4:[function(require,module,exports){
 "use strict";
-// a common place for both evaludate.js and dice.peg to agree on a
-// representation of the concepts used in dice.js.
-// as well as some implementation details.
-// 90% of this work is an attempt to avoid exploding the call stack like the
-// old implementation could.
+/* A representation of a dice syntax tree. This allows the various other
+modules to work on a well typed tree rather than just 'knowing' about
+function names and arguments. In addition to defining the nodes of the AST,
+it also provides a helper class for walking the tree.
+*/
 var __classPrivateFieldSet = (this && this.__classPrivateFieldSet) || function (receiver, state, value, kind, f) {
     if (kind === "m") throw new TypeError("Private method is not writable");
     if (kind === "a" && !f) throw new TypeError("Private accessor was defined without a setter");
@@ -808,6 +811,9 @@ var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (
 var _Static_value, _Lookup_lookupName, _RollSetModifiers_mods, _RollSetModifiers_kidKeys, _KeepDrop_action, _KeepDrop_direction, _KeepDrop_howMany, _ReRoll_comparisonStr, _ReRoll_compareToVal, _ReRoll_limit, _Explode_comparisonStr, _Explode_compareToVal, _Explode_limit, _DiceRoll_x, _DiceRoll_min, _DiceRoll_max, _DiceRoll_modifiers, _Rounder_roundType, _Rounder_thingToRound, _MathOp_opStr, _MathOp_val, _MathOpList_ops, _MathOpList_kidKeys, _MathSeq_ops, _MathSeq_head, _Parens_expression, _TreeWalkerStep_currentNode, _TreeWalkerStep_allKeys, _TreeWalkerStep_keyItor, _TreeWalkerStep_currentKey, _TreeWalkerStep_keyMapAcc;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.walk_ast = exports.TreeWalkerStep = exports.Parens = exports.MathSeq = exports.MathOpList = exports.MathOp = exports.Rounder = exports.DiceRoll = exports.Explode = exports.ReRoll = exports.KeepDrop = exports.RollSetModifiers = exports.Lookup = exports.Static = void 0;
+/* A raw number.
+    5
+*/
 class Static {
     constructor(val) {
         _Static_value.set(this, void 0);
@@ -825,6 +831,9 @@ class Static {
 }
 exports.Static = Static;
 _Static_value = new WeakMap();
+/* The lookup syntax:
+     [some name]
+*/
 class Lookup {
     constructor(name) {
         _Lookup_lookupName.set(this, void 0);
@@ -842,6 +851,9 @@ class Lookup {
 }
 exports.Lookup = Lookup;
 _Lookup_lookupName = new WeakMap();
+/* A set of roll modifiers. Usually empty.
+    { rollModifer; ... }
+*/
 class RollSetModifiers {
     constructor(mods) {
         _RollSetModifiers_mods.set(this, []);
@@ -907,6 +919,13 @@ class KeepDrop {
 }
 exports.KeepDrop = KeepDrop;
 _KeepDrop_action = new WeakMap(), _KeepDrop_direction = new WeakMap(), _KeepDrop_howMany = new WeakMap();
+/* when to reroll a die.
+    :rr
+    reroll // reroll on die min an undefined number of times.
+    :rr1
+    reroll 1x // reroll on die min once.
+    reroll <3 5x
+    */
 class ReRoll {
     constructor(comparisonStr, compareToVal, limit) {
         _ReRoll_comparisonStr.set(this, void 0);
@@ -934,6 +953,12 @@ class ReRoll {
 }
 exports.ReRoll = ReRoll;
 _ReRoll_comparisonStr = new WeakMap(), _ReRoll_compareToVal = new WeakMap(), _ReRoll_limit = new WeakMap();
+/* the 'explode' or wild die representation.
+    1w6
+    1W6
+    explode 1x
+    explode >5 3x
+    */
 class Explode {
     constructor(comparisonStr, compareToVal, limit) {
         _Explode_comparisonStr.set(this, void 0);
@@ -961,6 +986,9 @@ class Explode {
 }
 exports.Explode = Explode;
 _Explode_comparisonStr = new WeakMap(), _Explode_compareToVal = new WeakMap(), _Explode_limit = new WeakMap();
+/* The reason you're here, a dice roll. Most parts end up being optional, but
+we need at least a maximum defined.
+*/
 class DiceRoll {
     constructor(x, min, max, modifiers) {
         _DiceRoll_x.set(this, void 0);
@@ -998,6 +1026,14 @@ class DiceRoll {
 }
 exports.DiceRoll = DiceRoll;
 _DiceRoll_x = new WeakMap(), _DiceRoll_min = new WeakMap(), _DiceRoll_max = new WeakMap(), _DiceRoll_modifiers = new WeakMap();
+/* floor, ceiling, and basic rounding.
+    f( )
+    c( )
+    r( )
+    f[ ]
+    c[ ]
+    r[ ]
+    */
 class Rounder {
     constructor(type, thingToRound) {
         _Rounder_roundType.set(this, "r");
@@ -1020,6 +1056,9 @@ class Rounder {
 }
 exports.Rounder = Rounder;
 _Rounder_roundType = new WeakMap(), _Rounder_thingToRound = new WeakMap();
+/* A math operator and the next "number" in the sequence. Used as part of
+a MathOpList.
+*/
 class MathOp {
     constructor(op, val) {
         _MathOp_opStr.set(this, "+");
@@ -1042,6 +1081,8 @@ class MathOp {
 }
 exports.MathOp = MathOp;
 _MathOp_opStr = new WeakMap(), _MathOp_val = new WeakMap();
+/* A walkable version of an array of mathops.
+*/
 class MathOpList {
     constructor(ops) {
         _MathOpList_ops.set(this, []);
@@ -1079,6 +1120,8 @@ class MathOpList {
 }
 exports.MathOpList = MathOpList;
 _MathOpList_ops = new WeakMap(), _MathOpList_kidKeys = new WeakMap();
+/* Defines the 'acc' for the fold of a MathOpList.
+*/
 class MathSeq {
     constructor(head, ops) {
         _MathSeq_ops.set(this, new MathOpList([]));
@@ -1101,6 +1144,8 @@ class MathSeq {
 }
 exports.MathSeq = MathSeq;
 _MathSeq_ops = new WeakMap(), _MathSeq_head = new WeakMap();
+/* Because sometimes the order of operations is not what we need.
+*/
 class Parens {
     constructor(express) {
         _Parens_expression.set(this, void 0);
@@ -1118,6 +1163,13 @@ class Parens {
 }
 exports.Parens = Parens;
 _Parens_expression = new WeakMap();
+/* A state holder when walking an AST. It holds a node, an iterator of that
+node's children, and a keymap to feed to an accumulator once it has been fully
+walked. The intent is a node would be the tree, a new step created, then for
+each child of the node. this step is pushed onto a stack, and we repeat at the
+'node in the tree' point until there are no children to walk to. A deeper
+explanation is at the 'walk_ast' function.
+*/
 class TreeWalkerStep {
     constructor(thing) {
         _TreeWalkerStep_currentNode.set(this, void 0);
@@ -1191,6 +1243,27 @@ class TreeWalkerStep {
 }
 exports.TreeWalkerStep = TreeWalkerStep;
 _TreeWalkerStep_currentNode = new WeakMap(), _TreeWalkerStep_allKeys = new WeakMap(), _TreeWalkerStep_keyItor = new WeakMap(), _TreeWalkerStep_currentKey = new WeakMap(), _TreeWalkerStep_keyMapAcc = new WeakMap();
+/* Given a way to deal with missing children, and what to do once a leaf
+node is found, walk the ast building up an accumulator. It's a big loop to
+avoid blowing out the call stack. State is a stack of TreeWalkerStep's. It
+worketh thusly:
+
+Given a node, create a new TreeWalkerStep.
+While there are unwalked to children of the node:
+    Get the 'first' unwalked child.
+    If the child is undefined, define it using the DefineDefault.
+    Push the current TreeWalkerStep onto the stack.
+    Set the child as the given node,
+    loop around.
+    pop a TreeWalkerStep off the stack.
+    Assign the child to the current working key
+    If there are no children left to walk
+        call the accumulator
+        pop
+        loop around
+    else
+        walk next child / loop around
+*/
 function walk_ast(ast, defaultAcc, defaulter, reducer) {
     let stepStack = [];
     let currentStep = new TreeWalkerStep(ast);
@@ -3321,6 +3394,8 @@ var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (
 var _AccMathOpList_ops, _AccMathSeq_head, _AccMathSeq_ops, _AccKeepDrop_howMany, _AccKeepDrop_ast, _AccExplode_compareValue, _AccExplode_limit, _AccExplode_ast, _AccReRoll_compareValue, _AccReRoll_limit, _AccReRoll_ast, _AccRollSetModifiers_mods;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.analyse = void 0;
+/* Run some very basic statistics against a roll string with a given scope.
+*/
 let grammer = require("./grammerAST");
 let parser = require('./parser');
 let evaluate = require("./evaluate");
@@ -3329,6 +3404,8 @@ function roll(str, scope) {
     let evaled = evaluate.eval(parsed, scope);
     return evaled;
 }
+/* The primary function to analyse a roll string.
+*/
 function analyse(str, scope, samples) {
     if (typeof (scope) === "number") {
         samples = scope;
@@ -3357,10 +3434,15 @@ function analyse(str, scope, samples) {
 }
 exports.analyse = analyse;
 ;
+/* What to use when an ast node is undefined.
+*/
 function ast_defaulter(tree, node, key) {
     let resolveType = evaluate.eval_default(key, node);
     return resolveType.ast;
 }
+/* After this, most classes mimic the grammerAST classes. The AccRange here
+is simple a definition of an interface to make accumulation easier.
+*/
 class AccRange {
     constructor(a, z) {
         this.min = a;
@@ -3649,98 +3731,6 @@ function determine_min_max_possible(ast, scope) {
     let red = make_reducer(scope);
     return grammer.walk_ast(ast, { 'min': 0, 'max': 0 }, ast_defaulter, red);
 }
-/*
-function determine_min_max_possible(ast, scope){
-    if(ast instanceof grammer.Static){
-        return () => { a: ast.value, z: ast.value };
-    }
-    if(ast instanceof grammer.Lookup){
-        return () => {
-            let resolved = new evaluate.LookupR(ast, scope);
-            return { a: resolved.valueOf(), z: resolved.valueOf() }
-        }
-    }
-    if(ast instanceof grammer.Rounder){
-        return (minMaxAcc) => {
-            if(ast.roundType === "f"){
-                return {a: Math.floor(minMaxAcc.a), z: Math.floor(minMaxAcc.z)};
-            } else if(ast.roundType === "c"){
-                return {a: Math.ceil(minMaxAcc.a), z: Math.ceil(minMaxAcc.z)};
-            } else {
-                return {a: Math.round(minMaxAcc.a), z: Math.round(minMaxAcc.z)};
-            }
-        };
-    }
-    if(ast instanceof grammer.DiceRoll){
-        return () => {
-
-        }
-    }
-    if(opObject.op == 'd'){
-        var multipleMinMax = determine_min_max_possible(opObject.args[0], scope);
-        var randPartMinMax = determine_min_max_possible(opObject.args[1], scope);
-        var min = randPartMinMax[0] * multipleMinMax[0];
-        var max = randPartMinMax[1] * multipleMinMax[1];
-        return [min, max];
-    }
-    if(opObject.op == 'w'){
-        var multipleMinMax = determine_min_max_possible(opObject.args[0], scope);
-        var randPartMinMax = determine_min_max_possible(opObject.args[1], scope);
-        var min = randPartMinMax[0] * multipleMinMax[0];
-        var max = randPartMinMax[1] * multipleMinMax[1];
-        return [min, max];
-    }
-    if(opObject.op == 'random'){
-        var minMinMax = determine_min_max_possible(opObject.args[0], scope);
-        var maxMinMax = determine_min_max_possible(opObject.args[1], scope);
-        return [minMinMax[0], maxMinMax[1]];
-    }
-    if(opObject.op == 'sum'){
-        var minMaxes = opObject.addends.map(function(sumOp){
-            return [sumOp[0], determine_min_max_possible(sumOp[1], scope)];
-        });
-        var minMaxInit = minMaxes.shift();
-        var min = minMaxes.reduce(function(acc, sumOp){
-            if(sumOp[0] === '+'){
-                return acc + sumOp[1][0];
-            } else {
-                return acc - sumOp[1][1];
-            }
-        }, minMaxInit[1][0]);
-        var max = minMaxes.reduce(function(acc, sumOp){
-            if(sumOp[0] === '+'){
-                return acc + sumOp[1][1];
-            } else {
-                return acc - sumOp[1][0];
-            }
-        }, minMaxInit[1][1]);
-        return [min, max];
-    }
-    if(opObject.op == 'mult'){
-        var minMaxes = opObject.multiplicants.map(function(multOp){
-            return [multOp[0], determine_min_max_possible(multOp[1], scope)];
-        });
-        var minMaxInit = minMaxes.shift();
-        var min = minMaxes.reduce(function(acc, multOp){
-            if(multOp[0] === '*'){
-                return acc * multOp[1][0];
-            } else {
-                return acc / multOp[1][1];
-            }
-        }, minMaxInit[1][0]);
-        var max = minMaxes.reduce(function(acc, multOp){
-            if(multOp[0] === '*'){
-                return acc * multOp[1][1];
-            } else {
-                return acc / multOp[1][0];
-            }
-        }, minMaxInit[1][1]);
-        return [min, max];
-    }
-    if(opObject.op == 'paren_express'){
-        return determine_min_max_possible(opObject.args[0], scope);
-    }
-}*/
 
 },{"./evaluate":3,"./grammerAST":4,"./parser":5}],7:[function(require,module,exports){
 "use strict";
