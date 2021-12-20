@@ -42,21 +42,23 @@ diceroll
 		return new ast.DiceRoll(x ?? undefined, undefined, max, mods ?? undefined);
 	}
 	/ x:intVal? [wW] min:intVal ".." max:intVal mods:rollModifiers? {
-		mods = mods ?? [];
+		let modsObject = mods ?? new ast.RollSetModifiers([]);
+		mods = modsObject.mods;
 		let wildMod = new ast.Explode("=", max, undefined, min, max);
 		mods.unshift(wildMod);
 		let properMods = new ast.RollSetModifiers(mods);
 		return new ast.DiceRoll(x ?? undefined, min, max, properMods);
 	}
 	/ x:intVal? [wW] max:intVal maybeMods:rollModifiers? {
-		let mods = maybeMods ?? [];
+		let originalMods = maybeMods ?? new ast.RollSetModifiers([]);
+		let mods = originalMods.mods;
 		let wildMod = new ast.Explode("=", max, undefined, 1, max);
 		mods.unshift(wildMod);
 		let properMods = new ast.RollSetModifiers(mods);
 		return new ast.DiceRoll(x ?? undefined, undefined, max, properMods);
 	}
-	/ min:intVal ".." max:intVal rollModifiers? {
-		return new ast.DiceRoll(undefined, min, max, rollModifiers ?? undefined);
+	/ min:intVal ".." max:intVal maybeMods:rollModifiers? {
+		return new ast.DiceRoll(undefined, min, max, maybeMods ?? undefined);
 	}
 
 rollModifiers
@@ -120,7 +122,7 @@ modifier
 
 keepDropModifier
 	= action:("keep" / "drop") dt:(need_ws "highest" / need_ws "lowest") maybe_howMany:(need_ws intVal)?{
-		let howMany = maybe_howMany[1] ?? undefined;
+		let howMany = (maybe_howMany ?? [undefined, undefined])[1] ?? undefined;
 		dt = dt[1];
 		return new ast.KeepDrop(action, dt, howMany);
 	}
