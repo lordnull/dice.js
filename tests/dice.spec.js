@@ -1,5 +1,6 @@
 var dice = require('../src/dice.js');
 var rand_roll_gen = require('./rand_roll_gen');
+var evaluate = require('../src/evaluate.js');
 
 describe("Dice", function(){
 
@@ -90,6 +91,58 @@ describe("Dice", function(){
 		});
 	});
 
+	describe("Keep/Drop Modifiers Work Correctly", function(){
+
+		it("keeps correct number of lowest", function(){
+			let kdmod = new evaluate.KeepDropModifier("keep", "lowest", 3, null);
+			let result = kdmod.modify([5, 4, 3, 2, 1].map((n) => new Number(n))).sort();
+			let expected = [1,2,3].map((n) => new Number(n)).sort();
+			expect(result).toEqual(expected);
+		});
+
+		it("keeps correct number of highest", function(){
+			let kdmod = new evaluate.KeepDropModifier("keep", "highest", 2, null);
+			let result = kdmod.modify([1,2,3,4,5].map((n) => new Number(n))).sort();
+			let expected = [5,4].map((n) => new Number(n)).sort();
+			expect(result).toEqual(expected);
+		});
+
+		it("drops correct number of lowest", function(){
+			let kdmod = new evaluate.KeepDropModifier("drop", "lowest", 4, null);
+			let result = kdmod.modify([5, 4, 3, 2, 1].map((n) => new Number(n))).sort();
+			let expected = [5].map((n) => new Number(n)).sort();
+			expect(result).toEqual(expected);
+		});
+
+		it("drops correct number of highest", function(){
+			let kdmod = new evaluate.KeepDropModifier("drop", "highest", 1, null);
+			let result = kdmod.modify([4, 3, 5, 2, 1].map((n) => new Number(n))).sort();
+			let expected = [4,3,2,1].map((n) => new Number(n)).sort();
+			expect(result).toEqual(expected);
+		});
+
+	});
+
+	describe("parses and evaluates keepdrop correctly", function(){
+		let expectations =
+			[ {str: "4d6:kl3", len: 3}
+			, {str: "4d6:kh2", len:2}
+			, {str: "4d6:dl1", len:3}
+			, {str: "4d6:dh2", len:2}
+			, {str: "4d6{ keep lowest 3 }", len:3}
+			, {str: "4d6{ keep highest 1 }", len:1}
+			, {str: "4d6{ drop lowest 2 }", len:2}
+			, {str: "4d6{ drop highest 1 }", len: 3}
+			];
+		expectations.map((ex) => {
+			it(ex.str, function(){
+				let r = dice.roll(ex.str);
+					expect(r.rolls.length).toEqual(ex.len);
+			})
+		})
+	});
+
+
 	xdescribe("Randomly generated rolls", function(){
 		console.log(rand_roll_gen);
 		for(let i = 0; i < 100; i++){
@@ -103,7 +156,7 @@ describe("Dice", function(){
 		}
 	})
 
-	describe("Roll results", function(){
+	xdescribe("Roll results", function(){
 
 		it("returns static numbers", function(){
 			var res = dice.roll("3");
@@ -163,7 +216,7 @@ describe("Dice", function(){
 			expect(stringy).toMatch(/1d20:\[\d+\] \+ 4/);
 		});
 
-		xit("parse and roll correct number of dice", function(){
+		it("parse and roll correct number of dice", function(){
 			res = dice.roll("3d6..6");
 			expect(res).toEqual(18);
 			expect(res.rolls).toBeDefined();
@@ -173,7 +226,7 @@ describe("Dice", function(){
 			});
 		});
 
-		xit("allows min and max to be negative", function(){
+		it("allows min and max to be negative", function(){
 			var res1 = dice.roll("-1..1");
 			expect(res1).toBeLessThan(2);
 			expect(res1).toBeGreaterThan(-2);
@@ -182,13 +235,13 @@ describe("Dice", function(){
 			expect(res2).toBeGreaterThan(-9);
 		});
 
-		xit("allows min and max to be in any order", function(){
+		it("allows min and max to be in any order", function(){
 			var res = dice.roll("1..-1");
 			expect(res).toBeLessThan(2);
 			expect(res).toBeGreaterThan(-2);
 		});
 
-		xit("parse scope in num dice", function(){
+		it("parse scope in num dice", function(){
 			var rollStr = "[Key Thing]d5..5";
 
 			var scope = {"Key Thing":4};
@@ -202,7 +255,7 @@ describe("Dice", function(){
 			expect(res).toEqual(27 * 5);
 		});
 
-		xit("parse scope in min and max", function(){
+		it("parse scope in min and max", function(){
 			var rollStr = "2d[Key Thing]..[Key Thing]";
 
 			var scope = {"Key Thing":4};
@@ -217,53 +270,53 @@ describe("Dice", function(){
 
 		});
 
-		xit("adds negative numbers correctly", function(){
+		it("adds negative numbers correctly", function(){
 			var rollStr = "5 + -2";
 			var parsed = dice.roll(rollStr, {});
 			expect(parsed).toEqual(3);
 		});
 
-		xit("handles multiplication", function(){
+		it("handles multiplication", function(){
 			var rollStr = "1d3..3 * 5";
 			var parsed = dice.roll(rollStr, {});
 			expect(parsed).toEqual(15);
 		});
 
-		xit("can divide two numbers", function(){
+		it("can divide two numbers", function(){
 			var rollStr = "1d15..15 / 3";
 			var parsed = dice.roll(rollStr, {});
 			expect(parsed).toEqual(5);
 		});
 
-		xit("floors variable numbers", function(){
+		it("floors variable numbers", function(){
 			var rollStr = "f[thang]d5..5";
 			var scope = {'thang':3.7};
 			var res = dice.roll(rollStr, scope);
 			expect(res).toEqual(15);
 		});
 
-		xit("rounds variable numbers", function(){
+		it("rounds variable numbers", function(){
 			var rollStr = "r[3 2]dr[4 5]..5 + r[6 7]";
 			var scope = {'3 2': 3.2, '4 5': 4.5, '6 7':6.7};
 			var res = dice.roll(rollStr, scope);
 			expect(res).toEqual(22);
 		});
 
-		xit("ceilings variable numbers", function(){
+		it("ceilings variable numbers", function(){
 			var rollStr = "1d4..c[not four]";
 			var scope = {'not four': 3.2};
 			var res = dice.roll(rollStr, scope);
 			expect(res).toEqual(4)
 		});
 
-		xit("respects order of operations", function(){
+		it("respects order of operations", function(){
 			var rollStr = "[n] + 2 * 5";
 			var scope = {'n':7};
 			var res = dice.roll(rollStr, scope);
 			expect(res).toEqual(17);
 		});
 
-		xit("handles basic parenthesis correctly", function(){
+		it("handles basic parenthesis correctly", function(){
 			var rollStr = "(2 + 3) * 7";
 			var res = dice.roll(rollStr, {});
 			expect(res).toEqual(35);
@@ -277,7 +330,7 @@ describe("Dice", function(){
 		["c(10 /3)", 4, "c( 10 / 3 )"]
 		];
 		testThings.map(function(ar){
-			xit("round evals " + ar[0], function(){
+			it("round evals " + ar[0], function(){
 				var res = dice.roll(ar[0], {});
 				expect(res).toEqual(ar[1]);
 				var stringy = dice.stringify(res);
@@ -315,7 +368,7 @@ describe("Dice", function(){
 			expect(results.mean).toEqual(1);
 		});
 
-		xit("can lookup weirdly named properties", function(){
+		it("can lookup weirdly named properties", function(){
 			var propName = "ಠ_ಠ and-more_unusual.characters#$!^*&";
 			var scope = {};
 			scope[propName] = 53;
@@ -323,7 +376,7 @@ describe("Dice", function(){
 			expect(results).toEqual(53);
 		});
 
-		xit("can lookup nested scope variables", function(){
+		it("can lookup nested scope variables", function(){
 			var scope = {
 				upper: {
 					nested: 7
@@ -333,7 +386,7 @@ describe("Dice", function(){
 			expect(results).toEqual(7);
 		});
 
-		xit("prefers full property name over nested scope", function(){
+		it("prefers full property name over nested scope", function(){
 			var scope = {
 				"upper.nested": 5,
 				upper: {
@@ -344,7 +397,7 @@ describe("Dice", function(){
 			expect(results).toEqual(5);
 		});
 
-		xit("treats 'D' and 'd' the same", function(){
+		it("treats 'D' and 'd' the same", function(){
 			var r1 = dice.roll("1d1");
 			var r2 = dice.roll("1D1");
 			expect(r1).toEqual(r2);
@@ -359,7 +412,7 @@ describe("Dice", function(){
 
 	});
 
-	xdescribe("simple statisitcs tests", function(){
+	describe("simple statisitcs tests", function(){
 
 		var name_base = "provides min_possible and max_possible for ";
 		var scope = {
@@ -367,7 +420,9 @@ describe("Dice", function(){
 			"v10": 10,
 			"v2": 2
 		};
+		let sigDigs = (n) => Math.round(n * 100) / 100;
 		var inputs = [
+			{str: "7 / 2", min: 3.5, max: 3.5},
 			{str: "d20", min: 1, max: 20},
 			{str: "[v1]d20", min: 1, max: 20},
 			{str: "3d6", min: 3, max: 18},
@@ -376,21 +431,26 @@ describe("Dice", function(){
 			{str: "2d6 + 7", min: 9, max: 19},
 			{str: "2d[v2]..6 + [v1]", min: 5, max: 13},
 			{str: "2d6 * 3", min: 6, max: 36},
-			// max is dirived by taking highest possible numerator / lowest possiblbe denominator 
+			// max is dirived by taking highest possible numerator / lowest possiblbe denominator
 			// while min is smallest possible numberator / highest possible denominator
 			{str: "3d6 / 2d[v10]", min: 0.15, max: 9},
 			// 2d6 * 3 + 1 / 2d6 + 1
 			// 6..36 + (1/2..1/12) + 1
-			{str: "[v2]d6 * 3 + [v1] / f(5 / 2)d6 + 1", min: 7 + (1/12), max: 37.5},
+			{str: "[v2]d6 * 3 + [v1] / f(5 / 2)d6 + 1", min: sigDigs(7 + (1/12)), max: 37.5},
 			{str: "f(2d10)w10", min: 2, max: 200},
 			{str: "3 + r(7 / 2)d10", min: 7, max: 43},
-			{str: "3dc(3 / 2)..7", min: 6, max: 21}
+			{str: "3dc(3 / 2)..7", min: 6, max: 21},
+			{str: "1w6", min:1, max:6},
+			{str: "4d6:kh3", min: 3, max: 18},
+			{str: "4d6:kl1", min:1, max: 6},
+			{str: "3d6:rr", min: 3, max: 18},
+			{str: "5d6{ keep highest 4; drop lowest 1; reroll <2 2x; explode =6 2x }", min: 3, max: 18}
 		];
 		inputs.map(function(opts){
 			it(name_base + opts.str, function(){
 				var stats = dice.statistics(opts.str, scope, 1);
-				expect(stats.min_possible).toEqual(opts.min);
-				expect(stats.max_possible).toEqual(opts.max);
+				expect(sigDigs(stats.min_possible)).toEqual(opts.min);
+				expect(sigDigs(stats.max_possible)).toEqual(opts.max);
 			});
 		});
 

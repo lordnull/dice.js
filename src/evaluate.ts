@@ -39,13 +39,16 @@ export class LookupR extends Resolver {
 		if(split[0] === path){
 			return;
 		}
-		let reduceRes = split.reduce((acc, elem) =>{
+		let reduceRes = split.reverse().reduceRight((acc, elem, index) =>{
 			if(acc === undefined){
 				return;
 			}
 			let nextAcc = acc[elem];
-			if(typeof nextAcc !== "object"){
-				return;
+			let isObject = (typeof nextAcc === "object");
+			let isNumber = (typeof nextAcc === "number");
+			let hasPathLeft = index !== 0;
+			if(hasPathLeft && ! isObject){
+				return undefined;
 			}
 			return nextAcc;
 		}, object);
@@ -177,7 +180,7 @@ export class KeepDropModifier extends Resolver {
 			return sorted.reverse().slice(this.#howMany.valueOf());
 		}
 		if(this.#action === "keep" && this.#direction === "lowest"){
-			return sorted.reverse().slice(this.#howMany.valueOf());
+			return sorted.reverse().slice(this.#howMany.valueOf() * -1);
 		}
 		if(this.#action === "drop" && this.#direction === "lowest"){
 			return sorted.slice(this.#howMany.valueOf());
@@ -600,7 +603,7 @@ function eval_keepdrop(ast : grammerTypes.KeepDrop, keyMap : Partial<Record<keyo
 	let action = ast.action
 	let direction = ast.direction
 	let howMany = keyMap.howMany;
-	return new grammer.KeepDropModifier(action, direction, howMany, ast);
+	return new KeepDropModifier(action, direction, howMany, ast);
 }
 
 function eval_reroll(ast : grammerTypes.ReRoll, keyMap : Partial<Record<keyof grammerTypes.ReRoll, Resolver>>){
@@ -663,7 +666,7 @@ function eval_diceroll(ast : grammerTypes.DiceRoll, keyMap : Partial<Record<keyo
 	return new DiceRollR(keyMap.x ?? new StaticR(1), keyMap.min ?? new StaticR(1), keyMap.max, mods, ast);
 }
 
-function eval_default<T extends AST>(key : keyof T | undefined, thing : T){
+export function eval_default<T extends AST>(key : keyof T | undefined, thing : T){
 	if(thing instanceof grammer.KeepDrop && key === "howMany"){
 		return new StaticR(1);
 	}
