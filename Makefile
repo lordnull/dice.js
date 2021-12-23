@@ -1,5 +1,7 @@
 TEST_BROWSER?=chrome
 
+.PHONY: clean clean-deps clean-all browser_test node_test dbgtest
+
 all: build/dice.js
 
 build/.deps-done: package.json package-lock.json
@@ -32,7 +34,12 @@ tests/dice.browser.spec.js: tests/dice.spec.js tests/rand_roll_gen.js build/dice
 
 clean:
 	rm -rf build/*
+	rm -f build/.tsc-done
 	rm -f src/parser.js
+	rm -f src/evaluate.js
+	rm -f src/grammerAST.js
+	rm -f src/statistics.js
+	rm -f src/stringify.js
 
 clean-deps:
 	rm -rf node_modules
