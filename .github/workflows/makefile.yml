@@ -1,0 +1,22 @@
+name: Makefile CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v2.5.0
+      with:
+        # Version Spec of the version to use.  Examples: 12.x, 10.15.1, >=10.15.0
+        node-version: ">=15.0.0"
+    - name: Install dependencies and Build the Thing
+      run: make
+    - name: Run tests
+      run: make node_test

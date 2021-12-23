@@ -1,3 +1,5 @@
+[![Makefile CI](https://github.com/lordnull/dice.js/actions/workflows/makefile.yml/badge.svg)](https://github.com/lordnull/dice.js/actions/workflows/makefile.yml)
+
 dice.js
 =======
 
