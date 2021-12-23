@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  build_and_test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -18,9 +18,5 @@ jobs:
         node-version: ">=15.0.0"
     - name: Install dependencies and Build the Thing
       run: make
-  test:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
     - name: Run tests
       run: make node_test
