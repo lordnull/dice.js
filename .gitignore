@@ -1,6 +1,12 @@
 *.swp
 *.swo
 node_modules
+// build files that we don't cache for people.
 build/.deps-done
+build/.tsc-done
+// generated javascript files, both test and src.
 tests/dice.browser.spec.js
-
+src/evaluate.js
+src/grammerAST.js
+src/statistics.js
+src/stringify.js
